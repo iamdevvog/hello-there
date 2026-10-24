@@ -32,18 +32,24 @@ export async function searchMedicineWeb(medicineId: string, name: string, streng
   let res: Response | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt) await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
-    res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: MODEL,
-        tools: [{ type: "browser_search" }],
-        tool_choice: "required",
-        temperature: 0.1,
-        messages: [{ role: "user", content: PROMPT(query) }],
-      }),
-    });
+    try {
+      res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        signal: AbortSignal.timeout(35000),
+        body: JSON.stringify({
+          model: MODEL,
+          tools: [{ type: "browser_search" }],
+          tool_choice: "required",
+          temperature: 0.1,
+          messages: [{ role: "user", content: PROMPT(query) }],
+        }),
+      });
+    } catch {
+      return searchViaLovable(base); // Groq too slow: fall back instead of hanging
+    }
     if (res.status !== 429 && res.status < 500) break;
+    if (attempt >= 1) break; // keep total wait bounded
   }
   if (!res || !res.ok) return searchViaLovable(base); // Groq limit/outage: use built-in Gemini search
   const body = (await res.json()) as {
