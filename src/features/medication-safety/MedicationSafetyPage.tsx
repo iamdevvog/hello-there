@@ -92,6 +92,19 @@ export function MedicationSafetyPage() {
       live = false;
     };
   }, [isSignedIn, list, getServices]);
+  const autoVerify = useRef(new Set<string>());
+  useEffect(() => {
+    if (!c || busy || step !== 2 || !services?.webEvidence || !services.externalProcessingApproved || !c.profile.consent) return;
+    const next = c.medicines.find((m) => !c.webEvidence?.[m.id] && !autoVerify.current.has(m.id));
+    if (!next) return;
+    autoVerify.current.add(next.id);
+    setBusy(true);
+    setNotice(`Checking ${next.originalName} against live medicine sources…`);
+    resolve({ data: { id: c.id, medicineId: next.id } })
+      .then((r) => { caseRef.current = r; setCase(r); setNotice(`Checked ${next.originalName} — review the sources`); })
+      .catch((e) => setError(e instanceof Error ? e.message : "Medicine search failed"))
+      .finally(() => setBusy(false));
+  }, [c, busy, step, services, resolve]);
   const autoRead = useRef(new Set<string>());
   useEffect(() => {
     if (!c || busy || !c.profile.consent || !services?.externalProcessingApproved) return;
