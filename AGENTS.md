@@ -12,3 +12,7 @@ Multilingual healthcare intake suite for patients, care teams, facility staff, p
 - **Database**: All persistence is managed via Turso (libSQL).
 - **Deployment**: Vercel-ready with Nitro preset `vercel`.
 - **Clerk credentials**: Resolve the secret inside request middleware, preferring `CLERK_SECRET_KEY` with `STRIPE_TEST_API_KEY` as the user-designated legacy fallback; never expose either to the browser.
+- **Medication Safety**: Keep the feature in `src/features/medication-safety` with a thin `/medication-safety` route and authenticated server functions; isolate private Turso cases and version history rather than reuse insecure encounter endpoints.
+- **Clinical authorization**: Medication Safety resolves clinician/pharmacist roles from server-owned configuration and requires owner access or an explicitly provisioned case grant; never accept roles or verification facts from browser input.
+- **Clinical knowledge**: Load licensed catalogue entries and reviewed versioned rules through server adapters; unavailable sources disable dependent clinical checks rather than falling back to generated medicine knowledge.
+- **External processing**: Prescription OCR/Gemini processing requires recorded consent and operator privacy approval; raw sources, corrections, renal measurements, analyses and report snapshots stay separately auditable.

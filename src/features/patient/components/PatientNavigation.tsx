@@ -49,6 +49,7 @@ export function PatientNavigation() {
             </Link>
           );
         })}
+        <Link to="/medication-safety" className="flex min-h-12 shrink-0 items-center gap-2 px-3 text-sm font-medium text-primary"><FileText className="size-4"/>Medication Safety</Link>
       </div>
     </nav>
   );
