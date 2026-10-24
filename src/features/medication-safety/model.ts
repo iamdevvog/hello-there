@@ -1,3 +1,4 @@
+import type { VerificationRun } from "./verification";
 import { z } from "zod";
 
 export const dateValue = z
@@ -53,6 +54,12 @@ export const catalogueSchema = z.object({
   verifiedAt: z.string().min(1),
   status: z.literal("active"),
   uses: z.string().optional(),
+  manufacturer: z.string().optional(),
+  marketer: z.string().optional(),
+  release: z.enum(["immediate-release", "modified-release"]).optional(),
+  productId: z.string().optional(),
+  sourceId: z.string().optional(),
+  retrievedAt: z.string().optional(),
 });
 export type CatalogueEntry = z.infer<typeof catalogueSchema>;
 export const medicineSchema = z.object({
@@ -180,6 +187,8 @@ export interface SafetyCase {
   audit: Audit[];
   reports: Report[];
   approvedVersion: number | null;
+  /** Append-only identity verification history (absent on older cases). */
+  verifications?: VerificationRun[];
 }
 export interface Services {
   catalogue: boolean;

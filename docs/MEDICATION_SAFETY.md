@@ -36,3 +36,10 @@ Grant professional access using a trusted operator process to insert `(case_id,u
 Preserve the existing Vercel-ready deployment. Automatic build/type validation is managed by Lovable. Run `bunx vitest run src/features/medication-safety/safety.test.ts` for synthetic acceptance tests. This suite is not clinical validation; configured rule datasets still require clinical governance and licensing review.
 
 No authoritative Indian catalogue, interaction database or clinical rules were supplied. Their UI states remain unavailable. Operator privacy approval and professional grants were not fabricated. Clerk signed-in end-to-end testing requires an actual configured session; public rendering and server-denial tests do not prove authenticated workflow completion. Persistent job queues, enterprise retention schedules, malware scanning and multi-tenant clinical assignment administration are not represented as completed infrastructure.
+
+## Medicine identity verification (identity-match-1.0.0)
+- Engine: `src/features/medication-safety/verification.ts` (pure, versioned weights). Runs automatically after extraction and after corrections; re-runs append history when the catalogue fingerprint changes.
+- Stages: exact brand → alias → fuzzy name (Levenshtein ratio ≥ 0.72, candidate only) → strength (unit-normalized, per-ingredient) → ingredients (only when stated) → dosage form → IR/MR → manufacturer (corroborating only).
+- Four separate dimensions: OCR, identity score (preliminary heuristic, not a validated probability; conflicts cap it at 40; missing strength = not calculable), evidence completeness, physical authenticity (always "Not verified" from OCR).
+- Catalogue source adapter: `MEDICATION_CATALOGUE_JSON` (licensed, traceable records; optional `manufacturer`, `marketer`, `release`, `productId`, `sourceId`, `retrievedAt`). No catalogue → "Insufficient evidence"; nothing is invented.
+- Limitations: the score is not calibrated against a labeled set yet; no packaging-photo or barcode authentication service is configured.
