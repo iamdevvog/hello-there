@@ -11,7 +11,7 @@ const CAT: CatalogueEntry[] = [
   entry({ id: "glycosr", brand: "Glycomet SR", ingredients: [{ name: "Metformin", strength: "500", unit: "mg" }], form: "Tablet", release: "modified-release" }),
   entry({ id: "janumet", brand: "Janumet", ingredients: [{ name: "Sitagliptin", strength: "50", unit: "mg" }, { name: "Metformin", strength: "500", unit: "mg" }], form: "Tablet" }),
   entry({ id: "dolo", brand: "Dolo", ingredients: [{ name: "Paracetamol", strength: "650", unit: "mg" }], form: "Tablet" }),
-  entry({ id: "dolex", brand: "Dolex", ingredients: [{ name: "Ibuprofen", strength: "650", unit: "mg" }], form: "Tablet", manufacturer: undefined }),
+  entry({ id: "dolox", brand: "Dolox", ingredients: [{ name: "Ibuprofen", strength: "650", unit: "mg" }], form: "Tablet", manufacturer: undefined }),
 ];
 const med = (o: Partial<Medicine>): Medicine => ({ ...emptyMedicine("doc", o.id ?? "m1"), excerpt: "x", instructions: "1-0-1", ...o });
 const run = (o: Partial<Medicine>, cat = CAT) => verifyMedicine(med(o), cat, "2026-10-24", "r");
@@ -29,8 +29,8 @@ describe("medicine identity verification", () => {
   });
   it("3 similar brand names with different medicines both stay candidates", () => {
     const r = run({ originalName: "Dolo", strength: "650 mg", form: "tablet" });
-    expect(r.candidates.map((c) => c.entryId)).toEqual(expect.arrayContaining(["dolo", "dolex"]));
-    expect(r.candidates.find((c) => c.entryId === "dolex")!.method).toBe("Fuzzy name — candidate only");
+    expect(r.candidates.map((c) => c.entryId)).toEqual(expect.arrayContaining(["dolo", "dolox"]));
+    expect(r.candidates.find((c) => c.entryId === "dolox")!.method).toBe("Fuzzy name — candidate only");
   });
   it("4 combination medicine compares each ingredient strength", () => {
     expect(parseStrength("50/500 mg")).toHaveLength(2);
@@ -51,7 +51,7 @@ describe("medicine identity verification", () => {
     expect(r.searchVariants).toContain("glycomet");
   });
   it("7 missing manufacturer is reported", () => {
-    const r = run({ originalName: "Dolex", strength: "650 mg", form: "tablet" });
+    const r = run({ originalName: "Dolox", strength: "650 mg", form: "tablet" });
     expect(r.messages).toContain("Manufacturer information is unavailable in the current catalogue.");
   });
   it("8 immediate vs modified release mismatch is flagged", () => {
