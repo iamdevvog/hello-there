@@ -1,21 +1,241 @@
 import { describe, expect, it } from "vitest";
 import { analyze, reportLines, ruleSchema } from "./engine";
-import { canAccess, candidates, emptyMedicine, emptyProfile, isProfessional, renalSchema, validateUpload, type CatalogueEntry, type SafetyCase } from "./model";
-function fixture():SafetyCase{return {id:"synthetic-case",owner:"owner-a",patientId:null,version:1,createdAt:"2026-10-24",updatedAt:"2026-10-24",profile:{...emptyProfile,identifier:"SYNTHETIC TEST ONLY",age:40,allergies:"None reported",conditions:"None reported"},prescriptions:[1,2,3].map(i=>({id:`doc-${i}`,name:`Synthetic ${i}.png`,mime:"image/png",size:100,digest:`${i}`,label:`Doctor ${i}`,prescriber:`Synthetic doctor ${i}`,date:"2026-10-20",clinic:"Synthetic fixture",status:"Verified",error:null,rawText:"Synthetic medication fixture",pages:1,createdAt:"2026-10-20"})),medicines:[],renal:[],analyses:[],reviews:[],audit:[],reports:[],approvedVersion:null};}
-function medicine(i:number,ingredients=["TEST-INGREDIENT"]){return {...emptyMedicine(`doc-${i}`,`med-${i}`),originalName:`Synthetic brand ${i}`,verification:"verified" as const,ingredients:ingredients.map(name=>({name,strength:"10",unit:"mg"})),strength:"10 mg",instructions:"Source fixture instructions",uncertainty:[],status:"reportedly-taking" as const};}
-const at="2026-10-24T12:00:00Z";
-describe("Medication Safety clinical boundaries",()=>{
- it("A: links all three verified same-ingredient prescriptions in findings timeline and report",()=>{const c=fixture();c.medicines=[1,2,3].map(i=>medicine(i));const a=analyze(c,[],at);const duplicate=a.alerts.find(f=>f.ruleId==="INGREDIENT-OVERLAP");expect(duplicate?.medicineIds).toEqual(["med-1","med-2","med-3"]);c.analyses=[a];const lines=reportLines(c,"test-report","draft",at).join("\n");for(const id of ["doc-1","doc-2","doc-3"])expect(lines).toContain(id);});
- it("B: expands all combination ingredients and keeps original product identity",()=>{const c=fixture();c.medicines=[medicine(1,["TEST-A","TEST-B"]),medicine(2,["TEST-B"])];const a=analyze(c,[],at);expect(a.alerts.find(f=>f.ruleId==="INGREDIENT-OVERLAP")?.ingredients).toEqual(["test b"]);expect(c.medicines[0]?.originalName).toBe("Synthetic brand 1");expect(c.medicines[0]?.ingredients).toHaveLength(2);});
- it("C: unknown brands never acquire ingredients or completed dependent checks",()=>{const c=fixture();c.medicines=[{...emptyMedicine("doc-1","m"),originalName:"Unknown synthetic brand"}];const a=analyze(c,[],at);expect(c.medicines[0]?.ingredients).toEqual([]);expect(a.alerts.some(f=>f.id==="identity:m")).toBe(true);expect(a.checks[0]?.status).toBe("incomplete");});
- it("candidate fuzzy discovery is not verified identity",()=>{const c:CatalogueEntry={id:"synthetic",brand:"Synthetic Brand",aliases:[],ingredients:[{name:"TEST-A",strength:"10",unit:"mg"}],form:"tablet",route:"oral",source:"TEST ONLY",reference:"https://example.org/synthetic",verifiedAt:"2026-10-24",status:"active"};const m={...medicine(1),originalName:"Synthetic",form:"tablet"};expect(candidates(m,[c])[0]?.status).toBe("candidate");expect(m.catalogueId).toBeNull();});
- it("D: ambiguous strength is preserved and requires clarification",()=>{const c=fixture();c.medicines=[{...medicine(1),strength:"?0 mg",uncertainty:["Unreadable decimal"]}];const a=analyze(c,[],at);expect(c.medicines[0]?.strength).toBe("?0 mg");expect(a.alerts.find(f=>f.id==="instructions:med-1")?.missing).toContain("Unreadable decimal");});
- it("E: renal change compares findings and preserves previous analysis",()=>{const c=fixture();c.medicines=[medicine(1)];const rule=ruleSchema.parse({id:"SYNTHETIC-RENAL",version:"test-1",reviewedBy:"Synthetic test reviewer",reviewedAt:"2026-10-24",category:"renal",ingredients:["TEST-INGREDIENT"],severity:"High",title:"SYNTHETIC THRESHOLD TEST",rationale:"Test-only threshold, not clinical evidence",source:"Synthetic test rule",reference:"https://example.org/synthetic",threshold:50,maxAgeDays:30});c.renal=[renalSchema.parse({id:"old",kind:"eGFR",value:70,unit:"mL/min/1.73m²",date:"2026-10-23",source:"Synthetic lab"})];const old=analyze(c,[rule],at);c.analyses=[old];c.renal.push({...c.renal[0],id:"new",kind:"eGFR",value:30,unit:"mL/min/1.73m²",date:"2026-10-24",source:"Synthetic new lab"});const next=analyze(c,[rule],at);expect(next.changes.new).toContain("rule:SYNTHETIC-RENAL:med-1");expect(c.analyses[0]?.alerts).toHaveLength(0);expect(c.renal).toHaveLength(2);});
- it("E: mismatched renal units and future dates are rejected",()=>{expect(renalSchema.safeParse({id:"test",kind:"eGFR",value:50,unit:"mg/dL",date:"2026-10-23",source:"Synthetic"}).success).toBe(false);expect(renalSchema.safeParse({id:"test",kind:"creatinine",value:1,unit:"mg/dL",date:"2099-01-01",source:"Synthetic"}).success).toBe(false);});
- it("F: old unknown-status prescriptions are not assumed current or discontinued",()=>{const c=fixture();c.prescriptions.forEach(d=>d.date="2020-01-01");c.medicines=[{...medicine(1),status:"unknown"},{...medicine(2),status:"unknown"}];const a=analyze(c,[],at);expect(c.medicines.every(m=>m.status==="unknown")).toBe(true);expect(a.alerts.find(f=>f.ruleId==="INGREDIENT-OVERLAP")?.missing).toContain("Confirm dates and current use");});
- it("G: unavailable interaction data never creates clinical interaction claims",()=>{const c=fixture();c.medicines=[medicine(1,["TEST-A"]),medicine(2,["TEST-B"])];const a=analyze(c,[],at);expect(a.checks.find(k=>k.category==="interaction")?.status).toBe("unavailable");expect(a.alerts.filter(f=>f.category==="interaction")).toEqual([]);});
- it("H: owner isolation and clinical role checks cannot grant ordinary users approval",()=>{expect(canAccess("patient-a","patient-b")).toBe(false);expect(canAccess("patient-a","")).toBe(false);expect(isProfessional("patient")).toBe(false);expect(isProfessional("admin")).toBe(false);expect(isProfessional("pharmacist")).toBe(true);});
- it("I: draft report keeps correct data analysis and unresolved source state",()=>{const c=fixture();c.medicines=[{...emptyMedicine("doc-2","unknown"),originalName:"Synthetic unreadable"}];c.analyses=[analyze(c,[],at)];const report=reportLines(c,"report-test","draft",at).join("\n");expect(report).toContain("report-test");expect(report).toContain("Analysis: 1");expect(report).toContain("Synthetic unreadable");expect(report).toContain("Ingredients").not;expect(report).toContain("None verified");});
- it("J: no alerts still reports unavailable categories and not comprehensive safety",()=>{const c=fixture();c.medicines=[medicine(1)];c.analyses=[analyze(c,[],at)];expect(c.analyses[0]?.alerts).toEqual([]);expect(c.analyses[0]?.checks.filter(k=>k.status==="unavailable")).toHaveLength(6);expect(reportLines(c,"no-alerts","draft",at).join("\n")).toContain("Absence of alerts does not prove safety");});
- it("rejects empty oversized forged and unsupported uploads",()=>{expect(()=>validateUpload(new Uint8Array(),"image/png")).toThrow();expect(()=>validateUpload(new Uint8Array(1024*1024+1),"application/pdf")).toThrow();expect(()=>validateUpload(new Uint8Array([1,2,3]),"image/jpeg")).toThrow();expect(()=>validateUpload(new Uint8Array([255,216,255]),"text/html")).toThrow();});
+import {
+  canAccess,
+  candidates,
+  emptyMedicine,
+  emptyProfile,
+  isProfessional,
+  renalSchema,
+  validateUpload,
+  type CatalogueEntry,
+  type SafetyCase,
+} from "./model";
+function fixture(): SafetyCase {
+  return {
+    id: "synthetic-case",
+    owner: "owner-a",
+    patientId: null,
+    version: 1,
+    createdAt: "2026-10-24",
+    updatedAt: "2026-10-24",
+    profile: {
+      ...emptyProfile,
+      identifier: "SYNTHETIC TEST ONLY",
+      age: 40,
+      allergies: "None reported",
+      conditions: "None reported",
+    },
+    prescriptions: [1, 2, 3].map((i) => ({
+      id: `doc-${i}`,
+      name: `Synthetic ${i}.png`,
+      mime: "image/png",
+      size: 100,
+      digest: `${i}`,
+      label: `Doctor ${i}`,
+      prescriber: `Synthetic doctor ${i}`,
+      date: "2026-10-20",
+      clinic: "Synthetic fixture",
+      status: "Verified",
+      error: null,
+      rawText: "Synthetic medication fixture",
+      pages: 1,
+      createdAt: "2026-10-20",
+    })),
+    medicines: [],
+    renal: [],
+    analyses: [],
+    reviews: [],
+    audit: [],
+    reports: [],
+    approvedVersion: null,
+  };
+}
+function medicine(i: number, ingredients = ["TEST-INGREDIENT"]) {
+  return {
+    ...emptyMedicine(`doc-${i}`, `med-${i}`),
+    originalName: `Synthetic brand ${i}`,
+    verification: "verified" as const,
+    ingredients: ingredients.map((name) => ({ name, strength: "10", unit: "mg" })),
+    strength: "10 mg",
+    instructions: "Source fixture instructions",
+    uncertainty: [],
+    status: "reportedly-taking" as const,
+  };
+}
+const at = "2026-10-24T12:00:00Z";
+describe("Medication Safety clinical boundaries", () => {
+  it("A: links all three verified same-ingredient prescriptions in findings timeline and report", () => {
+    const c = fixture();
+    c.medicines = [1, 2, 3].map((i) => medicine(i));
+    const a = analyze(c, [], at);
+    const duplicate = a.alerts.find((f) => f.ruleId === "INGREDIENT-OVERLAP");
+    expect(duplicate?.medicineIds).toEqual(["med-1", "med-2", "med-3"]);
+    c.analyses = [a];
+    const lines = reportLines(c, "test-report", "draft", at).join("\n");
+    for (const id of ["doc-1", "doc-2", "doc-3"]) expect(lines).toContain(id);
+  });
+  it("B: expands all combination ingredients and keeps original product identity", () => {
+    const c = fixture();
+    c.medicines = [medicine(1, ["TEST-A", "TEST-B"]), medicine(2, ["TEST-B"])];
+    const a = analyze(c, [], at);
+    expect(a.alerts.find((f) => f.ruleId === "INGREDIENT-OVERLAP")?.ingredients).toEqual([
+      "test b",
+    ]);
+    expect(c.medicines[0]?.originalName).toBe("Synthetic brand 1");
+    expect(c.medicines[0]?.ingredients).toHaveLength(2);
+  });
+  it("C: unknown brands never acquire ingredients or completed dependent checks", () => {
+    const c = fixture();
+    c.medicines = [{ ...emptyMedicine("doc-1", "m"), originalName: "Unknown synthetic brand" }];
+    const a = analyze(c, [], at);
+    expect(c.medicines[0]?.ingredients).toEqual([]);
+    expect(a.alerts.some((f) => f.id === "identity:m")).toBe(true);
+    expect(a.checks[0]?.status).toBe("incomplete");
+  });
+  it("candidate fuzzy discovery is not verified identity", () => {
+    const c: CatalogueEntry = {
+      id: "synthetic",
+      brand: "Synthetic Brand",
+      aliases: [],
+      ingredients: [{ name: "TEST-A", strength: "10", unit: "mg" }],
+      form: "tablet",
+      route: "oral",
+      source: "TEST ONLY",
+      reference: "https://example.org/synthetic",
+      verifiedAt: "2026-10-24",
+      status: "active",
+    };
+    const m = { ...medicine(1), originalName: "Synthetic", form: "tablet" };
+    expect(candidates(m, [c])[0]?.status).toBe("candidate");
+    expect(m.catalogueId).toBeNull();
+  });
+  it("D: ambiguous strength is preserved and requires clarification", () => {
+    const c = fixture();
+    c.medicines = [{ ...medicine(1), strength: "?0 mg", uncertainty: ["Unreadable decimal"] }];
+    const a = analyze(c, [], at);
+    expect(c.medicines[0]?.strength).toBe("?0 mg");
+    expect(a.alerts.find((f) => f.id === "instructions:med-1")?.missing).toContain(
+      "Unreadable decimal",
+    );
+  });
+  it("E: renal change compares findings and preserves previous analysis", () => {
+    const c = fixture();
+    c.medicines = [medicine(1)];
+    const rule = ruleSchema.parse({
+      id: "SYNTHETIC-RENAL",
+      version: "test-1",
+      reviewedBy: "Synthetic test reviewer",
+      reviewedAt: "2026-10-24",
+      category: "renal",
+      ingredients: ["TEST-INGREDIENT"],
+      severity: "High",
+      title: "SYNTHETIC THRESHOLD TEST",
+      rationale: "Test-only threshold, not clinical evidence",
+      source: "Synthetic test rule",
+      reference: "https://example.org/synthetic",
+      threshold: 50,
+      maxAgeDays: 30,
+    });
+    c.renal = [
+      renalSchema.parse({
+        id: "old",
+        kind: "eGFR",
+        value: 70,
+        unit: "mL/min/1.73m²",
+        date: "2026-10-23",
+        source: "Synthetic lab",
+      }),
+    ];
+    const old = analyze(c, [rule], at);
+    c.analyses = [old];
+    c.renal.push({
+      ...c.renal[0],
+      id: "new",
+      kind: "eGFR",
+      value: 30,
+      unit: "mL/min/1.73m²",
+      date: "2026-10-24",
+      source: "Synthetic new lab",
+    });
+    const next = analyze(c, [rule], at);
+    expect(next.changes.new).toContain("rule:SYNTHETIC-RENAL:med-1");
+    expect(c.analyses[0]?.alerts).toHaveLength(0);
+    expect(c.renal).toHaveLength(2);
+  });
+  it("E: mismatched renal units and future dates are rejected", () => {
+    expect(
+      renalSchema.safeParse({
+        id: "test",
+        kind: "eGFR",
+        value: 50,
+        unit: "mg/dL",
+        date: "2026-10-23",
+        source: "Synthetic",
+      }).success,
+    ).toBe(false);
+    expect(
+      renalSchema.safeParse({
+        id: "test",
+        kind: "creatinine",
+        value: 1,
+        unit: "mg/dL",
+        date: "2099-01-01",
+        source: "Synthetic",
+      }).success,
+    ).toBe(false);
+  });
+  it("F: old unknown-status prescriptions are not assumed current or discontinued", () => {
+    const c = fixture();
+    c.prescriptions.forEach((d) => (d.date = "2020-01-01"));
+    c.medicines = [
+      { ...medicine(1), status: "unknown" },
+      { ...medicine(2), status: "unknown" },
+    ];
+    const a = analyze(c, [], at);
+    expect(c.medicines.every((m) => m.status === "unknown")).toBe(true);
+    expect(a.alerts.find((f) => f.ruleId === "INGREDIENT-OVERLAP")?.missing).toContain(
+      "Confirm dates and current use",
+    );
+  });
+  it("G: unavailable interaction data never creates clinical interaction claims", () => {
+    const c = fixture();
+    c.medicines = [medicine(1, ["TEST-A"]), medicine(2, ["TEST-B"])];
+    const a = analyze(c, [], at);
+    expect(a.checks.find((k) => k.category === "interaction")?.status).toBe("unavailable");
+    expect(a.alerts.filter((f) => f.category === "interaction")).toEqual([]);
+  });
+  it("H: owner isolation and clinical role checks cannot grant ordinary users approval", () => {
+    expect(canAccess("patient-a", "patient-b")).toBe(false);
+    expect(canAccess("patient-a", "")).toBe(false);
+    expect(isProfessional("patient")).toBe(false);
+    expect(isProfessional("admin")).toBe(false);
+    expect(isProfessional("pharmacist")).toBe(true);
+  });
+  it("I: draft report keeps correct data analysis and unresolved source state", () => {
+    const c = fixture();
+    c.medicines = [{ ...emptyMedicine("doc-2", "unknown"), originalName: "Synthetic unreadable" }];
+    c.analyses = [analyze(c, [], at)];
+    const report = reportLines(c, "report-test", "draft", at).join("\n");
+    expect(report).toContain("report-test");
+    expect(report).toContain("Analysis: 1");
+    expect(report).toContain("Synthetic unreadable");
+    expect(report).toContain("None verified");
+  });
+  it("J: no alerts still reports unavailable categories and not comprehensive safety", () => {
+    const c = fixture();
+    c.medicines = [medicine(1)];
+    c.analyses = [analyze(c, [], at)];
+    expect(c.analyses[0]?.alerts).toEqual([]);
+    expect(c.analyses[0]?.checks.filter((k) => k.status === "unavailable")).toHaveLength(6);
+    expect(reportLines(c, "no-alerts", "draft", at).join("\n")).toContain(
+      "Absence of alerts does not prove safety",
+    );
+  });
+  it("rejects empty oversized forged and unsupported uploads", () => {
+    expect(() => validateUpload(new Uint8Array(), "image/png")).toThrow();
+    expect(() => validateUpload(new Uint8Array(1024 * 1024 + 1), "application/pdf")).toThrow();
+    expect(() => validateUpload(new Uint8Array([1, 2, 3]), "image/jpeg")).toThrow();
+    expect(() => validateUpload(new Uint8Array([255, 216, 255]), "text/html")).toThrow();
+  });
 });

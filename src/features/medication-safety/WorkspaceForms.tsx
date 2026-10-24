@@ -4,31 +4,497 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { emptyProfile, renalSchema, type Profile, type Renal, type SafetyCase, type Services } from "./model";
+import {
+  emptyProfile,
+  renalSchema,
+  type Profile,
+  type Renal,
+  type SafetyCase,
+  type Services,
+} from "./model";
 
-export function Field({label,children}:{label:string;children:React.ReactNode}){return <label className="grid gap-2 text-sm font-medium">{label}{children}</label>;}
-export function ProfileForm({initial=emptyProfile,onSave,busy}:{initial?:Profile;onSave:(p:Profile)=>void;busy:boolean}){
- const [p,set]=useState(initial);const update=(key:keyof Profile,value:unknown)=>set(old=>({...old,[key]:value}));
- return <form onSubmit={e=>{e.preventDefault();onSave(p);}} className="space-y-6">
-  <div className="grid gap-5 sm:grid-cols-2"><Field label="Patient name or record identifier"><Input required maxLength={120} value={p.identifier} onChange={e=>update("identifier",e.target.value)} placeholder="Patient identifier"/></Field><Field label="Age (years, if known)"><Input type="number" min={0} max={130} value={p.age??""} onChange={e=>update("age",e.target.value?Number(e.target.value):null)}/></Field><Field label="Weight (if known)"><div className="flex gap-2"><Input type="number" min={0.1} step="any" value={p.weight??""} onChange={e=>update("weight",e.target.value?Number(e.target.value):null)}/><select aria-label="Weight unit" className="mk-select w-24" value={p.weightUnit} onChange={e=>update("weightUnit",e.target.value)}><option>kg</option><option>lb</option></select></div></Field><Field label="Sex (only for applicable supported rules)"><select className="mk-select" value={p.sex} onChange={e=>update("sex",e.target.value)}><option value="not-recorded">Not recorded</option><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option></select></Field></div>
-  <div className="grid gap-5 sm:grid-cols-2"><Field label="Known allergies and recorded reactions"><Textarea rows={3} value={p.allergies} onChange={e=>update("allergies",e.target.value)} placeholder="Not recorded"/></Field><Field label="Documented medical conditions"><Textarea rows={3} value={p.conditions} onChange={e=>update("conditions",e.target.value)} placeholder="Not recorded"/></Field></div><Field label="Other relevant recorded information"><Textarea value={p.notes} onChange={e=>update("notes",e.target.value)} /></Field>
-  <div className="flex items-start gap-3 border-t pt-5"><Checkbox id="external-consent" checked={p.consent} onCheckedChange={v=>update("consent",v===true)}/><label htmlFor="external-consent" className="text-sm leading-relaxed">I consent to external OCR and Gemini processing of these prescriptions, subject to the facility’s approved privacy arrangements. Uploading alone does not send documents externally.</label></div>
-  <Button type="submit" disabled={busy}><Save/> {busy?"Saving…":"Save patient context"}</Button>
- </form>;
+export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="grid gap-2 text-sm font-medium">
+      {label}
+      {children}
+    </label>
+  );
 }
-export function RenalForm({onSave,busy,measurements}:{onSave:(r:Renal)=>void;busy:boolean;measurements:Renal[]}){
- const [kind,setKind]=useState<Renal["kind"]>("eGFR");const [unit,setUnit]=useState<Renal["unit"]>("mL/min/1.73m²");const [value,setValue]=useState("");const [date,setDate]=useState("");const [source,setSource]=useState("");const [error,setError]=useState("");
- return <div className="space-y-5"><div className="border-t pt-5"><h3 className="font-semibold">Kidney-function history</h3><p className="mt-1 text-sm text-muted-foreground">Missing measurements are not normal results. Every new result is retained and triggers re-evaluation.</p></div><div className="grid gap-3 sm:grid-cols-2">{measurements.map(m=><div key={m.id} className="border-l-2 border-primary pl-3 text-sm"><strong>{m.kind} · {m.value} {m.unit}</strong><p className="text-muted-foreground">{m.date} · {m.source}</p></div>)}</div><form onSubmit={e=>{e.preventDefault();const r=renalSchema.safeParse({id:"",kind,unit,value:Number(value),date,source});if(!r.success){setError(r.error.issues.map(i=>i.message).join("; "));return;}setError("");onSave(r.data);}} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><Field label="Measurement"><select className="mk-select" value={kind} onChange={e=>{const k=e.target.value as Renal["kind"];setKind(k);setUnit(k==="eGFR"?"mL/min/1.73m²":"mg/dL");}}><option>eGFR</option><option value="creatinine">Serum creatinine</option></select></Field><Field label="Value"><Input required type="number" min={0.01} step="any" value={value} onChange={e=>setValue(e.target.value)}/></Field><Field label="Unit"><select className="mk-select" value={unit} onChange={e=>setUnit(e.target.value as Renal["unit"])}>{kind==="eGFR"?<option>mL/min/1.73m²</option>:<><option>mg/dL</option><option>µmol/L</option></>}</select></Field><Field label="Collection date"><Input required type="date" value={date} onChange={e=>setDate(e.target.value)}/></Field><Field label="Source"><Input required value={source} onChange={e=>setSource(e.target.value)} placeholder="Laboratory / report reference"/></Field><div className="self-end"><Button disabled={busy} type="submit" className="w-full"><Plus/>Record & re-evaluate</Button></div>{error&&<p role="alert" className="text-sm text-destructive sm:col-span-2">{error}</p>}</form></div>;
+export function ProfileForm({
+  initial = emptyProfile,
+  onSave,
+  busy,
+}: {
+  initial?: Profile;
+  onSave: (p: Profile) => void;
+  busy: boolean;
+}) {
+  const [p, set] = useState(initial);
+  const update = (key: keyof Profile, value: unknown) => set((old) => ({ ...old, [key]: value }));
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(p);
+      }}
+      className="space-y-6"
+    >
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Patient name or record identifier">
+          <Input
+            required
+            maxLength={120}
+            value={p.identifier}
+            onChange={(e) => update("identifier", e.target.value)}
+            placeholder="Patient identifier"
+          />
+        </Field>
+        <Field label="Age (years, if known)">
+          <Input
+            type="number"
+            min={0}
+            max={130}
+            value={p.age ?? ""}
+            onChange={(e) => update("age", e.target.value ? Number(e.target.value) : null)}
+          />
+        </Field>
+        <Field label="Weight (if known)">
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              min={0.1}
+              step="any"
+              value={p.weight ?? ""}
+              onChange={(e) => update("weight", e.target.value ? Number(e.target.value) : null)}
+            />
+            <select
+              aria-label="Weight unit"
+              className="mk-select w-24"
+              value={p.weightUnit}
+              onChange={(e) => update("weightUnit", e.target.value)}
+            >
+              <option>kg</option>
+              <option>lb</option>
+            </select>
+          </div>
+        </Field>
+        <Field label="Sex (only for applicable supported rules)">
+          <select
+            className="mk-select"
+            value={p.sex}
+            onChange={(e) => update("sex", e.target.value)}
+          >
+            <option value="not-recorded">Not recorded</option>
+            <option value="female">Female</option>
+            <option value="male">Male</option>
+            <option value="other">Other</option>
+          </select>
+        </Field>
+      </div>
+      <div className="grid gap-5 sm:grid-cols-2">
+        <Field label="Known allergies and recorded reactions">
+          <Textarea
+            rows={3}
+            value={p.allergies}
+            onChange={(e) => update("allergies", e.target.value)}
+            placeholder="Not recorded"
+          />
+        </Field>
+        <Field label="Documented medical conditions">
+          <Textarea
+            rows={3}
+            value={p.conditions}
+            onChange={(e) => update("conditions", e.target.value)}
+            placeholder="Not recorded"
+          />
+        </Field>
+      </div>
+      <Field label="Other relevant recorded information">
+        <Textarea value={p.notes} onChange={(e) => update("notes", e.target.value)} />
+      </Field>
+      <div className="flex items-start gap-3 border-t pt-5">
+        <Checkbox
+          id="external-consent"
+          checked={p.consent}
+          onCheckedChange={(v) => update("consent", v === true)}
+        />
+        <label htmlFor="external-consent" className="text-sm leading-relaxed">
+          I consent to external OCR and Gemini processing of these prescriptions, subject to the
+          facility’s approved privacy arrangements. Uploading alone does not send documents
+          externally.
+        </label>
+      </div>
+      <Button type="submit" disabled={busy}>
+        <Save /> {busy ? "Saving…" : "Save patient context"}
+      </Button>
+    </form>
+  );
 }
-export interface PendingFile {file:File;id:string;status:"queued"|"uploading"|"failed";error:string;progress:number;label:string;prescriber:string;date:string;clinic:string;}
-export function UploadWorkspace({c,services,busy,onUpload,onProcess,onRemove,onPreview,onVerify}:{c:SafetyCase;services:Services|null;busy:boolean;onUpload:(files:PendingFile[],set:React.Dispatch<React.SetStateAction<PendingFile[]>>)=>void;onProcess:(id:string)=>void;onRemove:(id:string)=>void;onPreview:(id:string)=>void;onVerify:(id:string)=>void}){
- const [files,setFiles]=useState<PendingFile[]>([]);const [error,setError]=useState("");const [drag,setDrag]=useState(false);
- const add=(incoming:FileList|File[])=>{const allowed=["application/pdf","image/png","image/jpeg"];const accepted:PendingFile[]=[];const errors:string[]=[];for(const file of Array.from(incoming)){if(!allowed.includes(file.type)||!file.size||file.size>1024*1024){errors.push(`${file.name}: PDF, PNG or JPEG, at most 1 MB`);continue;}if(files.some(p=>p.file.name===file.name&&p.file.size===file.size))continue;accepted.push({file,id:crypto.randomUUID(),status:"queued",error:"",progress:0,label:`Prescription ${c.prescriptions.length+files.length+accepted.length+1}`,prescriber:"",date:"",clinic:""});}setFiles(old=>[...old,...accepted]);setError(errors.join("; "));};
- const update=(id:string,key:keyof PendingFile,value:string)=>setFiles(old=>old.map(f=>f.id===id?{...f,[key]:value}:f));
- return <div className="space-y-6"><div onDragOver={e=>{e.preventDefault();setDrag(true);}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);add(e.dataTransfer.files);}} className={`grid min-h-56 place-items-center rounded-lg border-2 border-dashed p-6 text-center ${drag?"border-primary bg-primary/5":"border-border bg-muted/30"}`}><div><div className="mx-auto mb-4 grid size-14 place-items-center rounded-lg bg-primary/10 text-primary"><FileUp className="size-7"/></div><h3 className="text-lg font-semibold">Prescriptions from every doctor. One history.</h3><p className="mt-2 text-sm text-muted-foreground">PDF, PNG or JPEG · up to 1 MB each · multiple files</p><Button variant="outline" className="mt-5" asChild><label htmlFor="prescription-picker"><Plus/>Choose prescriptions</label></Button><input id="prescription-picker" type="file" className="sr-only" multiple accept=".pdf,.png,.jpg,.jpeg" onChange={e=>{if(e.target.files)add(e.target.files);e.target.value="";}}/></div></div>
- {error&&<p role="alert" className="text-sm text-destructive">{error}</p>}
- {files.map(f=><article key={f.id} className="space-y-4 rounded-lg border p-4"><div className="flex items-center justify-between gap-3"><span className="flex min-w-0 items-center gap-2 text-sm font-semibold"><FileText className="size-4 shrink-0"/><span className="break-all">{f.file.name}</span></span><Button variant="ghost" size="icon" aria-label={`Remove ${f.file.name}`} disabled={f.status==="uploading"} onClick={()=>setFiles(old=>old.filter(x=>x.id!==f.id))}><Trash2/></Button></div><div className="grid gap-3 sm:grid-cols-2"><Field label="Source label"><Input required value={f.label} onChange={e=>update(f.id,"label",e.target.value)}/></Field><Field label="Prescriber (if known)"><Input value={f.prescriber} onChange={e=>update(f.id,"prescriber",e.target.value)}/></Field><Field label="Prescription date (if known)"><Input type="date" value={f.date} onChange={e=>update(f.id,"date",e.target.value)}/></Field><Field label="Clinic (if known)"><Input value={f.clinic} onChange={e=>update(f.id,"clinic",e.target.value)}/></Field></div>{f.status==="uploading"&&<><progress aria-label={`Upload progress ${f.file.name}`} value={f.progress} max={100} className="h-2 w-full"/><p className="text-sm">{f.progress===100?"Saving prescription…":`Reading file… ${f.progress}%`}</p></>}{f.error&&<p role="alert" className="text-sm text-destructive">{f.error}</p>}</article>)}
- {files.length>0&&<Button disabled={busy||files.some(f=>!f.label.trim())} onClick={()=>onUpload(files,setFiles)}><FileUp/>Upload {files.length} prescription{files.length===1?"":"s"}</Button>}
- {(!services?.externalProcessingApproved||!c.profile.consent)&&<div className="flex gap-3 border-l-2 border-primary pl-4 text-sm text-muted-foreground"><ShieldCheck className="size-5 shrink-0"/><p>External processing is paused. Patient consent and operator privacy approval are required; private uploads and manual transcription remain available.</p></div>}
- <div className="divide-y border-y">{c.prescriptions.map(d=><article key={d.id} className="flex flex-wrap items-center justify-between gap-4 py-4"><div className="min-w-0"><p className="font-semibold">{d.label}</p><p className="break-all text-sm text-muted-foreground">{d.name} · {d.prescriber||"Prescriber not recorded"} · {d.date||"Date unknown"}</p><p className="mt-1 text-xs font-medium text-primary">{d.status}</p>{d.error&&<p className="mt-2 max-w-xl text-sm text-destructive">{d.error}</p>}</div><div className="flex flex-wrap gap-2"><Button variant="outline" size="sm" disabled={busy} onClick={()=>onPreview(d.id)}><Eye/>Source</Button><Button variant="outline" size="sm" disabled={busy || !services?.externalProcessingApproved || !c.profile.consent || !services?.ocr || !services?.extraction} onClick={()=>onProcess(d.id)}><RefreshCw/>{d.status==="Failed"||d.status==="Extracting"?"Retry extraction":"Extract"}</Button>{services?.professional&&<Button variant="outline" size="sm" disabled={busy} onClick={()=>onVerify(d.id)}><ShieldCheck/>Verify source</Button>}<Button variant="ghost" size="icon" disabled={busy||c.analyses.length>0} aria-label={`Remove ${d.label}`} onClick={()=>onRemove(d.id)}><Trash2/></Button></div></article>)}</div></div>;
+export function RenalForm({
+  onSave,
+  busy,
+  measurements,
+}: {
+  onSave: (r: Renal) => void;
+  busy: boolean;
+  measurements: Renal[];
+}) {
+  const [kind, setKind] = useState<Renal["kind"]>("eGFR");
+  const [unit, setUnit] = useState<Renal["unit"]>("mL/min/1.73m²");
+  const [value, setValue] = useState("");
+  const [date, setDate] = useState("");
+  const [source, setSource] = useState("");
+  const [error, setError] = useState("");
+  return (
+    <div className="space-y-5">
+      <div className="border-t pt-5">
+        <h3 className="font-semibold">Kidney-function history</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Missing measurements are not normal results. Every new result is retained and triggers
+          re-evaluation.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {measurements.map((m) => (
+          <div key={m.id} className="border-l-2 border-primary pl-3 text-sm">
+            <strong>
+              {m.kind} · {m.value} {m.unit}
+            </strong>
+            <p className="text-muted-foreground">
+              {m.date} · {m.source}
+            </p>
+          </div>
+        ))}
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          const r = renalSchema.safeParse({
+            id: "",
+            kind,
+            unit,
+            value: Number(value),
+            date,
+            source,
+          });
+          if (!r.success) {
+            setError(r.error.issues.map((i) => i.message).join("; "));
+            return;
+          }
+          setError("");
+          onSave(r.data);
+        }}
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        <Field label="Measurement">
+          <select
+            className="mk-select"
+            value={kind}
+            onChange={(e) => {
+              const k = e.target.value as Renal["kind"];
+              setKind(k);
+              setUnit(k === "eGFR" ? "mL/min/1.73m²" : "mg/dL");
+            }}
+          >
+            <option>eGFR</option>
+            <option value="creatinine">Serum creatinine</option>
+          </select>
+        </Field>
+        <Field label="Value">
+          <Input
+            required
+            type="number"
+            min={0.01}
+            step="any"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+          />
+        </Field>
+        <Field label="Unit">
+          <select
+            className="mk-select"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value as Renal["unit"])}
+          >
+            {kind === "eGFR" ? (
+              <option>mL/min/1.73m²</option>
+            ) : (
+              <>
+                <option>mg/dL</option>
+                <option>µmol/L</option>
+              </>
+            )}
+          </select>
+        </Field>
+        <Field label="Collection date">
+          <Input required type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
+        <Field label="Source">
+          <Input
+            required
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            placeholder="Laboratory / report reference"
+          />
+        </Field>
+        <div className="self-end">
+          <Button disabled={busy} type="submit" className="w-full">
+            <Plus />
+            Record & re-evaluate
+          </Button>
+        </div>
+        {error && (
+          <p role="alert" className="text-sm text-destructive sm:col-span-2">
+            {error}
+          </p>
+        )}
+      </form>
+    </div>
+  );
+}
+export interface PendingFile {
+  file: File;
+  id: string;
+  status: "queued" | "uploading" | "failed";
+  error: string;
+  progress: number;
+  label: string;
+  prescriber: string;
+  date: string;
+  clinic: string;
+}
+export function UploadWorkspace({
+  c,
+  services,
+  busy,
+  onUpload,
+  onProcess,
+  onRemove,
+  onPreview,
+  onVerify,
+}: {
+  c: SafetyCase;
+  services: Services | null;
+  busy: boolean;
+  onUpload: (
+    files: PendingFile[],
+    set: React.Dispatch<React.SetStateAction<PendingFile[]>>,
+  ) => void;
+  onProcess: (id: string) => void;
+  onRemove: (id: string) => void;
+  onPreview: (id: string) => void;
+  onVerify: (id: string) => void;
+}) {
+  const [files, setFiles] = useState<PendingFile[]>([]);
+  const [error, setError] = useState("");
+  const [drag, setDrag] = useState(false);
+  const add = (incoming: FileList | File[]) => {
+    const allowed = ["application/pdf", "image/png", "image/jpeg"];
+    const accepted: PendingFile[] = [];
+    const errors: string[] = [];
+    for (const file of Array.from(incoming)) {
+      if (!allowed.includes(file.type) || !file.size || file.size > 1024 * 1024) {
+        errors.push(`${file.name}: PDF, PNG or JPEG, at most 1 MB`);
+        continue;
+      }
+      if (files.some((p) => p.file.name === file.name && p.file.size === file.size)) continue;
+      accepted.push({
+        file,
+        id: crypto.randomUUID(),
+        status: "queued",
+        error: "",
+        progress: 0,
+        label: `Prescription ${c.prescriptions.length + files.length + accepted.length + 1}`,
+        prescriber: "",
+        date: "",
+        clinic: "",
+      });
+    }
+    setFiles((old) => [...old, ...accepted]);
+    setError(errors.join("; "));
+  };
+  const update = (id: string, key: keyof PendingFile, value: string) =>
+    setFiles((old) => old.map((f) => (f.id === id ? { ...f, [key]: value } : f)));
+  return (
+    <div className="space-y-6">
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDrag(true);
+        }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDrag(false);
+          add(e.dataTransfer.files);
+        }}
+        className={`grid min-h-56 place-items-center rounded-lg border-2 border-dashed p-6 text-center ${drag ? "border-primary bg-primary/5" : "border-border bg-muted/30"}`}
+      >
+        <div>
+          <div className="mx-auto mb-4 grid size-14 place-items-center rounded-lg bg-primary/10 text-primary">
+            <FileUp className="size-7" />
+          </div>
+          <h3 className="text-lg font-semibold">Prescriptions from every doctor. One history.</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            PDF, PNG or JPEG · up to 1 MB each · multiple files
+          </p>
+          <Button variant="outline" className="mt-5" asChild>
+            <label htmlFor="prescription-picker">
+              <Plus />
+              Choose prescriptions
+            </label>
+          </Button>
+          <input
+            id="prescription-picker"
+            type="file"
+            className="sr-only"
+            multiple
+            accept=".pdf,.png,.jpg,.jpeg"
+            onChange={(e) => {
+              if (e.target.files) add(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      </div>
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      {files.map((f) => (
+        <article key={f.id} className="space-y-4 rounded-lg border p-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+              <FileText className="size-4 shrink-0" />
+              <span className="break-all">{f.file.name}</span>
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={`Remove ${f.file.name}`}
+              disabled={f.status === "uploading"}
+              onClick={() => setFiles((old) => old.filter((x) => x.id !== f.id))}
+            >
+              <Trash2 />
+            </Button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Source label">
+              <Input
+                required
+                value={f.label}
+                onChange={(e) => update(f.id, "label", e.target.value)}
+              />
+            </Field>
+            <Field label="Prescriber (if known)">
+              <Input
+                value={f.prescriber}
+                onChange={(e) => update(f.id, "prescriber", e.target.value)}
+              />
+            </Field>
+            <Field label="Prescription date (if known)">
+              <Input
+                type="date"
+                value={f.date}
+                onChange={(e) => update(f.id, "date", e.target.value)}
+              />
+            </Field>
+            <Field label="Clinic (if known)">
+              <Input value={f.clinic} onChange={(e) => update(f.id, "clinic", e.target.value)} />
+            </Field>
+          </div>
+          {f.status === "uploading" && (
+            <>
+              <progress
+                aria-label={`Upload progress ${f.file.name}`}
+                value={f.progress}
+                max={100}
+                className="h-2 w-full"
+              />
+              <p className="text-sm">
+                {f.progress === 100 ? "Saving prescription…" : `Reading file… ${f.progress}%`}
+              </p>
+            </>
+          )}
+          {f.error && (
+            <p role="alert" className="text-sm text-destructive">
+              {f.error}
+            </p>
+          )}
+        </article>
+      ))}
+      {files.length > 0 && (
+        <Button
+          disabled={busy || files.some((f) => !f.label.trim())}
+          onClick={() => onUpload(files, setFiles)}
+        >
+          <FileUp />
+          Upload {files.length} prescription{files.length === 1 ? "" : "s"}
+        </Button>
+      )}
+      {(!services?.externalProcessingApproved || !c.profile.consent) && (
+        <div className="flex gap-3 border-l-2 border-primary pl-4 text-sm text-muted-foreground">
+          <ShieldCheck className="size-5 shrink-0" />
+          <p>
+            External processing is paused. Patient consent and operator privacy approval are
+            required; private uploads and manual transcription remain available.
+          </p>
+        </div>
+      )}
+      <div className="divide-y border-y">
+        {c.prescriptions.map((d) => (
+          <article key={d.id} className="flex flex-wrap items-center justify-between gap-4 py-4">
+            <div className="min-w-0">
+              <p className="font-semibold">{d.label}</p>
+              <p className="break-all text-sm text-muted-foreground">
+                {d.name} · {d.prescriber || "Prescriber not recorded"} · {d.date || "Date unknown"}
+              </p>
+              <p className="mt-1 text-xs font-medium text-primary">{d.status}</p>
+              {d.error && <p className="mt-2 max-w-xl text-sm text-destructive">{d.error}</p>}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" disabled={busy} onClick={() => onPreview(d.id)}>
+                <Eye />
+                Source
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={
+                  busy ||
+                  !services?.externalProcessingApproved ||
+                  !c.profile.consent ||
+                  !services?.ocr ||
+                  !services?.extraction
+                }
+                onClick={() => onProcess(d.id)}
+              >
+                <RefreshCw />
+                {d.status === "Failed" || d.status === "Extracting"
+                  ? "Retry extraction"
+                  : "Extract"}
+              </Button>
+              {services?.professional && (
+                <Button variant="outline" size="sm" disabled={busy} onClick={() => onVerify(d.id)}>
+                  <ShieldCheck />
+                  Verify source
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                disabled={busy || c.analyses.length > 0}
+                aria-label={`Remove ${d.label}`}
+                onClick={() => onRemove(d.id)}
+              >
+                <Trash2 />
+              </Button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
 }
