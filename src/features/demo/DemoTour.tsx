@@ -27,6 +27,9 @@ import {
   demoStructuredCase,
   demoVitals,
 } from "./data";
+import { LiveConversation, LiveDocumentUpload, LiveFindings, LiveIdentification, LivePrescriptionRead, LiveVerification, LiveVitals } from "./live";
+import { RotateCcw } from "lucide-react";
+import { useState } from "react";
 
 type Step = {
   group: string;
@@ -109,15 +112,7 @@ const steps: Step[] = [
     icon: Users,
     say: "Basic details are collected with big tap-friendly fields. A returning patient is matched to their existing record.",
     live: "/patient-kiosk/identification",
-    body: (
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Name" value={demoPatient.name} />
-        <Field label="Age" value={`${demoPatient.age} years`} />
-        <Field label="Gender" value={demoPatient.sex} />
-        <Field label="Phone" value={demoPatient.phone} />
-        <div className="sm:col-span-2"><Pill_ tone="primary">Returning patient · {demoPatient.id}</Pill_></div>
-      </div>
-    ),
+    body: <LiveIdentification />,
   },
   {
     group: "Patient kiosk",
@@ -125,46 +120,23 @@ const steps: Step[] = [
     icon: Mic,
     say: "The patient just talks. Speech is transcribed and the kiosk reads back what it understood, so the patient can confirm it.",
     live: "/patient-kiosk/case-taking",
-    body: (
-      <Card className="space-y-3">
-        {demoConversation.map((m, i) => (
-          <div key={i} className={`flex ${m.who === "patient" ? "justify-end" : ""}`}>
-            <p className={`max-w-[80%] rounded-2xl px-4 py-3 text-base ${m.who === "patient" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
-              {m.who === "patient" && <Mic className="mr-2 inline h-4 w-4" />}
-              {m.text}
-            </p>
-          </div>
-        ))}
-      </Card>
-    ),
+    body: <LiveConversation />,
   },
   {
     group: "Patient kiosk",
-    title: "4. Vitals & documents",
+    title: "4a. Vitals",
     icon: Activity,
-    say: "Vitals are recorded and old reports or prescriptions are photographed. MediKiosk reads them automatically.",
+    say: "Staff or a connected device records vitals. They attach to the same visit automatically.",
     live: "/patient-kiosk/vitals",
-    body: (
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <p className="mb-3 font-semibold">Vitals</p>
-          <div className="grid grid-cols-2 gap-2">
-            {demoVitals.map(([l, v, u]) => <Field key={l} label={l} value={`${v} ${u}`} />)}
-          </div>
-        </Card>
-        <Card>
-          <p className="mb-3 font-semibold">Documents uploaded</p>
-          <ul className="space-y-2">
-            {demoDocuments.map((d) => (
-              <li key={d.title} className="flex items-center justify-between rounded-xl border border-border px-4 py-3">
-                <span className="flex items-center gap-2"><FileText className="h-4 w-4 text-primary" />{d.title}</span>
-                <Pill_ tone="ok">{d.fields} fields read</Pill_>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      </div>
-    ),
+    body: <LiveVitals />,
+  },
+  {
+    group: "Patient kiosk",
+    title: "4b. Document upload — live reading",
+    icon: FileText,
+    say: "The patient holds an old report to the camera. MediKiosk uploads it, reads the text, recognises the document type and pulls out each value — all in seconds.",
+    live: "/patient-kiosk/documents",
+    body: <LiveDocumentUpload />,
   },
   {
     group: "Patient kiosk",
@@ -249,18 +221,7 @@ const steps: Step[] = [
     icon: FileText,
     say: "Patients often see several doctors. They upload all prescriptions; MediKiosk reads handwriting and extracts every medicine.",
     live: "/medication-safety",
-    body: (
-      <div className="grid gap-4 sm:grid-cols-2">
-        {demoDocuments.slice(1).map((d) => (
-          <Card key={d.title}>
-            <FileText className="h-8 w-8 text-primary" />
-            <p className="mt-2 text-lg font-semibold">{d.title}</p>
-            <p className="text-sm text-muted-foreground">{d.date}</p>
-            <div className="mt-3"><Pill_ tone="ok">Read · {d.fields} medicines found</Pill_></div>
-          </Card>
-        ))}
-      </div>
-    ),
+    body: <LivePrescriptionRead />,
   },
   {
     group: "Medication safety",
@@ -268,24 +229,7 @@ const steps: Step[] = [
     icon: Pill,
     say: "Each brand is matched to its active ingredient using live web sources with links. Low-confidence matches go to a pharmacist — and 'not found' never means fake.",
     live: "/medication-safety",
-    body: (
-      <Card className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-left text-sm">
-          <thead className="text-muted-foreground"><tr><th className="py-2">Written</th><th>Matched product</th><th>Ingredient</th><th>Match</th><th>Status</th></tr></thead>
-          <tbody>
-            {demoMedicines.map((m) => (
-              <tr key={m.written} className="border-t border-border">
-                <td className="py-3 font-semibold">{m.written}</td>
-                <td>{m.brand}</td>
-                <td>{m.ingredient}</td>
-                <td>{Math.round(m.match * 100)}%</td>
-                <td><Pill_ tone={m.match > 0.7 ? "ok" : "danger"}>{m.status}</Pill_></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-    ),
+    body: <LiveVerification />,
   },
   {
     group: "Medication safety",
@@ -313,17 +257,7 @@ const steps: Step[] = [
     icon: ShieldAlert,
     say: "Findings are ranked by priority, each with a plain explanation and the next action. Checks without a licensed source are shown as unavailable — never guessed.",
     live: "/medication-safety",
-    body: (
-      <div className="space-y-3">
-        {demoFindings.map((f) => (
-          <Card key={f.title}>
-            <div className="flex items-center gap-3"><Pill_ tone={f.level === "High" ? "danger" : f.level === "Review" ? "primary" : "muted"}>{f.level}</Pill_><p className="text-lg font-semibold">{f.title}</p></div>
-            <p className="mt-2">{f.detail}</p>
-            <p className="mt-1 text-sm text-muted-foreground">Next: {f.action}</p>
-          </Card>
-        ))}
-      </div>
-    ),
+    body: <LiveFindings />,
   },
   {
     group: "Medication safety",
@@ -431,6 +365,7 @@ export function DemoTour() {
   }, [go, step, s.title]);
 
   const Icon = s.icon;
+  const [replay, setReplay] = useState(0);
   return (
     <div className="flex min-h-dvh flex-col bg-background text-foreground">
       <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
@@ -454,7 +389,8 @@ export function DemoTour() {
             <h1 className="mt-1 flex items-center gap-3 text-3xl font-semibold sm:text-4xl"><Icon className="h-8 w-8 text-primary" />{s.title}</h1>
             <p className="mt-3 max-w-3xl text-lg text-muted-foreground">{s.say}</p>
           </div>
-          <div key={step} className="animate-in fade-in slide-in-from-bottom-2 duration-300">{s.body}</div>
+          <button onClick={() => setReplay((r) => r + 1)} className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm"><RotateCcw className="h-4 w-4" />Replay animation</button>
+          <div key={`${step}-${replay}`} className="animate-in fade-in slide-in-from-bottom-2 duration-300">{s.body}</div>
         </main>
       </div>
 
