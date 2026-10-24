@@ -28,6 +28,7 @@ import {
   demoVitals,
 } from "./data";
 import { LiveConversation, LiveDocumentUpload, LiveFindings, LiveIdentification, LivePrescriptionRead, LiveVerification, LiveVitals } from "./live";
+import { IntroDetail, LanguageConsent, CheckinComplete, AssistedDetail, ClinicianDetail, CaseDetail, TimelineDetail, ReportDetail, PatientHomeDetail, OpsAdminDetail, ClosingDetail } from "./live2";
 import { RotateCcw } from "lucide-react";
 import { useState } from "react";
 
@@ -68,20 +69,7 @@ const steps: Step[] = [
     icon: HeartPulse,
     say: "Patients speak their problem in Hindi or English. No typing. The clinician receives a clear, structured case — and a safety check of every medicine they already take.",
     live: "/",
-    body: (
-      <div className="grid gap-4 sm:grid-cols-3">
-        {[
-          ["Patient kiosk", "Speak, don't type"],
-          ["Care team", "Structured cases & queue"],
-          ["Medication safety", "Multi-doctor prescription check"],
-        ].map(([a, b]) => (
-          <Card key={a}>
-            <p className="text-xl font-semibold">{a}</p>
-            <p className="mt-1 text-muted-foreground">{b}</p>
-          </Card>
-        ))}
-      </div>
-    ),
+    body: <IntroDetail />,
   },
   {
     group: "Patient kiosk",
@@ -89,22 +77,7 @@ const steps: Step[] = [
     icon: Globe,
     say: "The kiosk greets in Hindi and English together. The patient taps a language and agrees to share information — every screen can be read aloud.",
     live: "/patient-kiosk",
-    body: (
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card>
-          <p className="text-sm text-muted-foreground">Chosen language</p>
-          <div className="mt-3 flex gap-3">
-            <span className="rounded-xl bg-primary px-6 py-4 text-xl font-semibold text-primary-foreground">हिंदी</span>
-            <span className="rounded-xl border border-border px-6 py-4 text-xl">English</span>
-          </div>
-        </Card>
-        <Card>
-          <p className="text-sm text-muted-foreground">Consent</p>
-          <p className="mt-3 flex items-center gap-2 text-lg font-semibold"><CheckCircle2 className="text-primary" /> Patient agreed to share information</p>
-          <p className="mt-2 text-sm text-muted-foreground">Read-aloud on · Large text available</p>
-        </Card>
-      </div>
-    ),
+    body: <LanguageConsent />,
   },
   {
     group: "Patient kiosk",
@@ -144,21 +117,7 @@ const steps: Step[] = [
     icon: CheckCircle2,
     say: "The patient gets a token number. Behind the scenes, their words became a structured case for the doctor.",
     live: "/patient-kiosk/complete",
-    body: (
-      <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
-        <Card className="text-center">
-          <p className="text-sm text-muted-foreground">Your token</p>
-          <p className="mt-2 text-6xl font-bold text-primary">{demoPatient.token}</p>
-          <p className="mt-2 text-sm">Please take a seat</p>
-        </Card>
-        <Card>
-          <p className="mb-3 font-semibold">Structured case sent to clinician</p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {demoStructuredCase.map(([l, v]) => <Field key={l} label={l} value={v} />)}
-          </div>
-        </Card>
-      </div>
-    ),
+    body: <CheckinComplete />,
   },
   {
     group: "Care team",
@@ -166,12 +125,7 @@ const steps: Step[] = [
     icon: ClipboardList,
     say: "Staff can help elderly or low-literacy patients through the same intake and track who is waiting.",
     live: "/assisted-kiosk",
-    body: (
-      <Card>
-        <div className="mb-3 flex gap-2"><Pill_ tone="primary">3 waiting</Pill_><Pill_>2 in progress</Pill_><Pill_ tone="ok">2 ready</Pill_></div>
-        <QueueTable />
-      </Card>
-    ),
+    body: <AssistedDetail />,
   },
   {
     group: "Care team",
@@ -179,17 +133,7 @@ const steps: Step[] = [
     icon: Stethoscope,
     say: "The doctor sees a prioritised queue. Urgent and priority cases rise to the top, already prepared.",
     live: "/clinician",
-    body: (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Field label="Ready to review" value="6" />
-          <Field label="Needs attention" value="4" />
-          <Field label="Average wait" value="18 min" />
-          <Field label="Completed today" value="9" />
-        </div>
-        <Card><QueueTable /></Card>
-      </div>
-    ),
+    body: <ClinicianDetail />,
   },
   {
     group: "Care team",
@@ -197,23 +141,7 @@ const steps: Step[] = [
     icon: FileText,
     say: "One click opens the full case: what the patient said (original + translation), vitals, documents and alerts — before the consultation starts.",
     live: "/clinician/patients",
-    body: (
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <p className="text-2xl font-semibold">{demoPatient.name} · {demoPatient.age}F</p>
-          <p className="text-muted-foreground">Hindi · Token {demoPatient.token}</p>
-          <div className="mt-4 grid gap-2 sm:grid-cols-2">
-            {demoStructuredCase.slice(0, 4).map(([l, v]) => <Field key={l} label={l} value={v} />)}
-          </div>
-        </Card>
-        <Card>
-          <p className="mb-2 font-semibold">Alerts</p>
-          <p className="flex gap-2 rounded-xl bg-destructive/10 p-3 text-sm text-destructive"><ShieldAlert className="h-4 w-4 shrink-0" />Duplicate paracetamol across two prescriptions</p>
-          <p className="mt-3 mb-2 font-semibold">Vitals</p>
-          <p className="text-sm text-muted-foreground">BP 128/82 · Pulse 78 · SpO₂ 98%</p>
-        </Card>
-      </div>
-    ),
+    body: <CaseDetail />,
   },
   {
     group: "Medication safety",
@@ -237,19 +165,7 @@ const steps: Step[] = [
     icon: Activity,
     say: "All doctors' medicines are combined into one chronological timeline so overlaps are obvious.",
     live: "/medication-safety",
-    body: (
-      <Card className="space-y-3">
-        {demoMedicines.map((m) => (
-          <div key={m.written} className="flex items-center gap-4">
-            <span className="w-16 text-sm font-semibold text-muted-foreground">{m.date}</span>
-            <span className="h-3 w-3 rounded-full bg-primary" />
-            <div className="flex-1 rounded-xl border border-border px-4 py-2">
-              <span className="font-semibold">{m.brand}</span> <span className="text-muted-foreground">· {m.dose} · {m.doctor}</span>
-            </div>
-          </div>
-        ))}
-      </Card>
-    ),
+    body: <TimelineDetail />,
   },
   {
     group: "Medication safety",
@@ -265,21 +181,7 @@ const steps: Step[] = [
     icon: CheckCircle2,
     say: "A pharmacist or clinician signs off, and a clean PDF report is generated for the patient's next doctor.",
     live: "/medication-safety",
-    body: (
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
-          <div><p className="text-xs uppercase text-primary">MediKiosk · Medication safety report</p><p className="text-2xl font-semibold">{demoPatient.name}</p></div>
-          <Pill_ tone="ok">Reviewed by pharmacist</Pill_>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Field label="Prescriptions" value="2" />
-          <Field label="Medicines" value="4" />
-          <Field label="High priority" value="1" />
-          <Field label="Needs confirmation" value="1" />
-        </div>
-        <p className="mt-4 text-sm text-muted-foreground">Decision support only — not a diagnosis. Physical authenticity of medicines is not verified.</p>
-      </Card>
-    ),
+    body: <ReportDetail />,
   },
   {
     group: "Patient & platform",
@@ -287,13 +189,7 @@ const steps: Step[] = [
     icon: HeartPulse,
     say: "Patients get their own portal: consultations, reports, documents, timeline and an assistant to answer simple questions.",
     live: "/patient",
-    body: (
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card><p className="text-sm text-muted-foreground">Latest visit</p><p className="text-lg font-semibold">Ayurveda OPD · 09 Sep</p></Card>
-        <Card><p className="text-sm text-muted-foreground">Documents</p><p className="text-lg font-semibold">3 available</p></Card>
-        <Card><p className="text-sm text-muted-foreground">Assistant</p><p className="text-lg font-semibold">“When is my next visit?”</p></Card>
-      </div>
-    ),
+    body: <PatientHomeDetail />,
   },
   {
     group: "Patient & platform",
@@ -301,12 +197,7 @@ const steps: Step[] = [
     icon: Settings,
     say: "Operators monitor processing health and audit trails; admins manage facilities, users and roles.",
     live: "/admin",
-    body: (
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card><Server className="text-primary" /><p className="mt-2 text-lg font-semibold">Operations</p><p className="text-muted-foreground">Outbox, retries, manual review, audit trail</p></Card>
-        <Card><Settings className="text-primary" /><p className="mt-2 text-lg font-semibold">Admin</p><p className="text-muted-foreground">Facilities, users, roles, configuration</p></Card>
-      </div>
-    ),
+    body: <OpsAdminDetail />,
   },
   {
     group: "Close",
@@ -314,12 +205,7 @@ const steps: Step[] = [
     icon: CheckCircle2,
     say: "From a patient's spoken words to a reviewed, safer medication plan — in one MediKiosk flow.",
     live: "/",
-    body: (
-      <Card className="text-center">
-        <p className="text-3xl font-semibold">Speak → Structure → Safer care</p>
-        <p className="mt-2 text-muted-foreground">Hindi & English · Voice-first · Professional review built in</p>
-      </Card>
-    ),
+    body: <ClosingDetail />,
   },
 ];
 
