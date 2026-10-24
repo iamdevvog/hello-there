@@ -20,6 +20,7 @@ const nav = [
   { to: "/clinician/worklist", label: "Worklist", icon: ClipboardList },
   { to: "/clinician/patients", label: "Patients", icon: Users },
   { to: "/clinician/documents", label: "Documents", icon: FileText },
+  { to: "/medication-safety", label: "Medication Safety", icon: FileText },
   { to: "/clinician/alerts", label: "Alerts", icon: Bell },
   { to: "/clinician/timeline", label: "Timeline", icon: History },
 ] as const;

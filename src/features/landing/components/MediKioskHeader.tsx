@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   Accessibility,
   Check,
@@ -421,6 +422,7 @@ export function MediKioskHeader() {
                   <SearchBar compact />
                 </div>
                 <nav aria-label="Mobile navigation" className="mt-6 border-y border-border">
+                  <SheetClose asChild><Link to="/medication-safety" className="flex min-h-14 items-center border-b text-base font-semibold">Medication Safety</Link></SheetClose>
                   {navItems.map((item) => (
                     <SheetClose asChild key={item.target}>
                       <a
@@ -478,6 +480,7 @@ export function MediKioskHeader() {
                 />
               </a>
             ))}
+            <Link to="/medication-safety" className="flex items-center text-sm font-semibold text-primary">Medication Safety</Link>
           </nav>
         </div>
       </header>

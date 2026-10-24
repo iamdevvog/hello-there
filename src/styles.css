@@ -49,6 +49,37 @@
   --shadow-lift: 0 4px 14px oklch(0.3 0.04 60 / 8%), 0 34px 80px -30px oklch(0.3 0.04 60 / 28%);
 
   --ease-calm: cubic-bezier(0.22, 0.8, 0.25, 1);
+  --color-clinical-background: oklch(0.981 0.003 250);
+  --color-clinical-surface: oklch(1 0 0);
+  --color-clinical-ink: oklch(0.27 0.025 255);
+  --color-clinical-primary: oklch(0.49 0.125 250);
+  --color-clinical-muted: oklch(0.955 0.007 250);
+  --color-clinical-border: oklch(0.899 0.009 250);
+}
+
+.medication-safety {
+  --radius: 0.5rem;
+  --background: var(--color-clinical-background);
+  --surface: var(--color-clinical-surface);
+  --card: var(--color-clinical-surface);
+  --foreground: var(--color-clinical-ink);
+  --primary: var(--color-clinical-primary);
+  --primary-foreground: var(--color-clinical-surface);
+  --muted: var(--color-clinical-muted);
+  --border: var(--color-clinical-border);
+  --input: var(--color-clinical-border);
+  --ring: var(--color-clinical-primary);
+}
+.medication-safety h1, .medication-safety h2, .medication-safety h3 { letter-spacing: 0; }
+.mk-select { min-height: 2.5rem; border: 1px solid var(--border); border-radius: .375rem; background: var(--surface); color: var(--foreground); padding: .5rem .75rem; font-size: .875rem; max-width: 100%; }
+.mk-status { display: inline-block; background: var(--muted); color: var(--muted-foreground); border-radius: .25rem; padding: .2rem .5rem; font-size: .75rem; }
+@media print {
+  body:has(#medication-report) * { visibility: hidden; }
+  #medication-report, #medication-report * { visibility: visible; }
+  #medication-report { position: absolute; left: 0; top: 0; width: 100%; border: 0; padding: 0; }
+  #medication-report h3 { break-after: avoid; }
+  #medication-report p { break-inside: avoid; }
+  @page { size: A4; margin: 18mm; }
 }
 
 :root {

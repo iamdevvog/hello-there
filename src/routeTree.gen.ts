@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AssistedKioskRouteImport } from './routes/assisted-kiosk'
 import { Route as ClinicianRouteImport } from './routes/clinician'
 import { Route as DocumentCheckRouteImport } from './routes/document-check'
+import { Route as MedicationSafetyRouteImport } from './routes/medication-safety'
 import { Route as OperationsRouteImport } from './routes/operations'
 import { Route as PatientRouteImport } from './routes/patient'
 import { Route as PatientKioskRouteImport } from './routes/patient-kiosk'
@@ -97,6 +98,11 @@ const ClinicianRoute = ClinicianRouteImport.update({
 const DocumentCheckRoute = DocumentCheckRouteImport.update({
   id: '/document-check',
   path: '/document-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MedicationSafetyRoute = MedicationSafetyRouteImport.update({
+  id: '/medication-safety',
+  path: '/medication-safety',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OperationsRoute = OperationsRouteImport.update({
@@ -406,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/assisted-kiosk': typeof AssistedKioskRouteWithChildren
   '/clinician': typeof ClinicianRouteWithChildren
   '/document-check': typeof DocumentCheckRoute
+  '/medication-safety': typeof MedicationSafetyRoute
   '/operations': typeof OperationsRouteWithChildren
   '/patient': typeof PatientRouteWithChildren
   '/patient-kiosk': typeof PatientKioskRouteWithChildren
@@ -469,6 +476,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/document-check': typeof DocumentCheckRoute
+  '/medication-safety': typeof MedicationSafetyRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/admin/audit': typeof AdminAuditRoute
@@ -532,6 +540,7 @@ export interface FileRoutesById {
   '/assisted-kiosk': typeof AssistedKioskRouteWithChildren
   '/clinician': typeof ClinicianRouteWithChildren
   '/document-check': typeof DocumentCheckRoute
+  '/medication-safety': typeof MedicationSafetyRoute
   '/operations': typeof OperationsRouteWithChildren
   '/patient': typeof PatientRouteWithChildren
   '/patient-kiosk': typeof PatientKioskRouteWithChildren
@@ -600,6 +609,7 @@ export interface FileRouteTypes {
     | '/assisted-kiosk'
     | '/clinician'
     | '/document-check'
+    | '/medication-safety'
     | '/operations'
     | '/patient'
     | '/patient-kiosk'
@@ -663,6 +673,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/document-check'
+    | '/medication-safety'
     | '/sign-in'
     | '/sign-up'
     | '/admin/audit'
@@ -725,6 +736,7 @@ export interface FileRouteTypes {
     | '/assisted-kiosk'
     | '/clinician'
     | '/document-check'
+    | '/medication-safety'
     | '/operations'
     | '/patient'
     | '/patient-kiosk'
@@ -792,6 +804,7 @@ export interface RootRouteChildren {
   AssistedKioskRoute: typeof AssistedKioskRouteWithChildren
   ClinicianRoute: typeof ClinicianRouteWithChildren
   DocumentCheckRoute: typeof DocumentCheckRoute
+  MedicationSafetyRoute: typeof MedicationSafetyRoute
   OperationsRoute: typeof OperationsRouteWithChildren
   PatientRoute: typeof PatientRouteWithChildren
   PatientKioskRoute: typeof PatientKioskRouteWithChildren
@@ -838,6 +851,13 @@ declare module '@tanstack/react-router' {
       path: '/document-check'
       fullPath: '/document-check'
       preLoaderRoute: typeof DocumentCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/medication-safety': {
+      id: '/medication-safety'
+      path: '/medication-safety'
+      fullPath: '/medication-safety'
+      preLoaderRoute: typeof MedicationSafetyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/operations': {
@@ -1437,6 +1457,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssistedKioskRoute: AssistedKioskRouteWithChildren,
   ClinicianRoute: ClinicianRouteWithChildren,
   DocumentCheckRoute: DocumentCheckRoute,
+  MedicationSafetyRoute: MedicationSafetyRoute,
   OperationsRoute: OperationsRouteWithChildren,
   PatientRoute: PatientRouteWithChildren,
   PatientKioskRoute: PatientKioskRouteWithChildren,

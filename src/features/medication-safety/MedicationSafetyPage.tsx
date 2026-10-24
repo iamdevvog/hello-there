@@ -1,0 +1,743 @@
+import { useEffect, useRef, useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { useAuth } from "@clerk/tanstack-react-start";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  Activity,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronRight,
+  FileText,
+  Loader2,
+  LockKeyhole,
+  Plus,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AuthStatus } from "@/features/auth/AuthStatus";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ProfileForm, RenalForm, UploadWorkspace, type PendingFile } from "./WorkspaceForms";
+import { MedicineWorkspace, TimelineWorkspace, type Candidate } from "./MedicineWorkspace";
+import { FindingsWorkspace, ReportWorkspace, ReviewWorkspace } from "./FindingsWorkspace";
+import { type SafetyCase, type Services } from "./model";
+import * as api from "./safety.functions";
+const stages = [
+  "Patient context",
+  "Prescriptions",
+  "Verify medicines",
+  "Unified timeline",
+  "Safety findings",
+  "Professional review",
+  "Report",
+];
+export function MedicationSafetyPage() {
+  const { isLoaded, isSignedIn } = useAuth();
+  const [c, setCase] = useState<SafetyCase | null>(null);
+  const [services, setServices] = useState<Services | null>(null);
+  const [cases, setCases] = useState<
+    { id: string; identifier: string; version: number; updatedAt: string }[]
+  >([]);
+  const [step, setStep] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [matches, setMatches] = useState<Candidate[]>([]);
+  const [medicineFocus,setMedicineFocus]=useState<string|null>(null);
+  const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
+  const caseRef = useRef(c);
+  caseRef.current = c;
+  const list = useServerFn(api.listSafetyCases),
+    getServices = useServerFn(api.getSafetyServices),
+    get = useServerFn(api.getSafetyCase),
+    create = useServerFn(api.createSafetyCase),
+    saveProfile = useServerFn(api.saveSafetyProfile),
+    upload = useServerFn(api.uploadPrescription),
+    process = useServerFn(api.processPrescription),
+    correct = useServerFn(api.correctMedicine),
+    resolve = useServerFn(api.resolveMedicine),
+    confirm = useServerFn(api.confirmMedicine),
+    analyze = useServerFn(api.runSafetyAnalysis),
+    renal = useServerFn(api.recordRenalMeasurement),
+    review = useServerFn(api.recordProfessionalReview),
+    verify = useServerFn(api.verifyPrescription),
+    report = useServerFn(api.generateSafetyReport),
+    pdf = useServerFn(api.downloadSafetyReport),
+    file = useServerFn(api.downloadPrescription),
+    remove = useServerFn(api.removePrescription),
+    erase = useServerFn(api.deleteSafetyCase);
+  useEffect(() => {
+    if (!isSignedIn) {
+      setCase(null);
+      setCases([]);
+      return;
+    }
+    let live = true;
+    setLoading(true);
+    Promise.all([list(), getServices()])
+      .then(([rows, s]) => {
+        if (live) {
+          setCases(rows);
+          setServices(s);
+        }
+      })
+      .catch((e) => {
+        if (live) setError(e instanceof Error ? e.message : "Unable to load cases");
+      })
+      .finally(() => {
+        if (live) setLoading(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [isSignedIn, list, getServices]);
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    },
+    [preview],
+  );
+  const act = async (work: () => Promise<SafetyCase>, message: string) => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await work();
+      caseRef.current = result;
+      setCase(result);
+      setNotice(message);
+      setCases(await list());
+      return result;
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "The action failed. Your saved records are retained.",
+      );
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const onPreview = async (id: string) => {
+    if (!c) return;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await file({ data: { id: c.id, documentId: id } });
+      setPreview({
+        url: URL.createObjectURL(new Blob([new Uint8Array(result.bytes)], { type: result.mime })),
+        mime: result.mime,
+        name: result.name,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Source unavailable");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const onUpload = async (
+    files: PendingFile[],
+    setFiles: React.Dispatch<React.SetStateAction<PendingFile[]>>,
+  ) => {
+    setBusy(true);
+    setError("");
+    for (const pending of files) {
+      const current = caseRef.current;
+      if (!current) break;
+      setFiles((old) =>
+        old.map((f) => (f.id === pending.id ? { ...f, status: "uploading", error: "" } : f)),
+      );
+      try {
+        const base64 = await new Promise<string>((res, rej) => {
+          const reader = new FileReader();
+          reader.onprogress = (e) => {
+            if (e.lengthComputable)
+              setFiles((old) =>
+                old.map((f) =>
+                  f.id === pending.id
+                    ? { ...f, progress: Math.round((e.loaded / e.total) * 100) }
+                    : f,
+                ),
+              );
+          };
+          reader.onload = () => res(String(reader.result).split(",")[1] ?? "");
+          reader.onerror = () => rej(new Error("File could not be read"));
+          reader.readAsDataURL(pending.file);
+        });
+        const next = await upload({
+          data: {
+            id: current.id,
+            version: current.version,
+            file: {
+              name: pending.file.name,
+              mime: pending.file.type as "application/pdf" | "image/png" | "image/jpeg",
+              base64,
+              label: pending.label,
+              prescriber: pending.prescriber,
+              date: pending.date,
+              clinic: pending.clinic,
+            },
+          },
+        });
+        caseRef.current = next;
+        setCase(next);
+        setFiles((old) => old.filter((f) => f.id !== pending.id));
+      } catch (e) {
+        setFiles((old) =>
+          old.map((f) =>
+            f.id === pending.id
+              ? { ...f, status: "failed", error: e instanceof Error ? e.message : "Upload failed" }
+              : f,
+          ),
+        );
+      }
+    }
+    setBusy(false);
+  };
+  const analysis = c?.analyses.at(-1);
+  const verified = c?.medicines.filter((m) => m.verification === "verified").length ?? 0;
+  return (
+    <div className="medication-safety min-h-screen bg-background text-foreground">
+      <a href="#safety-main" className="skip-link">
+        Skip to medication workspace
+      </a>
+      <header className="border-b bg-surface">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <Link to="/" className="flex items-center gap-3">
+            <img src="/logo.png" alt="" className="size-9" />
+            <span className="text-xl font-semibold">MediKiosk</span>
+            <span className="hidden border-l pl-3 text-xs text-muted-foreground sm:block">
+              Clinical workspace
+            </span>
+          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" asChild>
+              <Link to="/patient">My Health</Link>
+            </Button>
+            <Button variant="ghost" asChild>
+              <Link to="/clinician">Care team</Link>
+            </Button>
+            <AuthStatus />
+          </div>
+        </div>
+      </header>
+      <main id="safety-main" className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:py-10">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div>
+            <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-primary">
+              <ShieldCheck className="size-4" />
+              MEDICATION RECONCILIATION
+            </div>
+            <h1 className="text-3xl font-semibold sm:text-4xl">Medication Safety</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+              Prescriptions, verified medicine identities and evidence-backed findings — together
+              for professional review.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 border-l-2 border-secondary pl-3 text-xs text-muted-foreground">
+            <LockKeyhole className="size-4 text-secondary" />
+            <span>
+              Private patient records
+              <br />
+              Professional review required
+            </span>
+          </div>
+        </div>
+        <div className="mt-7 flex items-start gap-3 border-y py-4 text-sm text-muted-foreground">
+          <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
+          <p>
+            Decision support, not prescribing. Missing information and unavailable checks remain
+            visible. Do not start, stop or change medicines based on this workspace.
+          </p>
+        </div>
+        {error && (
+          <div
+            role="alert"
+            className="mt-5 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+          >
+            {error}
+            <Button variant="link" className="ml-2 text-destructive" onClick={() => setError("")}>
+              Dismiss
+            </Button>
+          </div>
+        )}
+        {notice && (
+          <p role="status" className="mt-4 flex items-center gap-2 text-sm text-secondary">
+            <Check className="size-4" />
+            {notice}
+          </p>
+        )}
+        {!isLoaded || loading ? (
+          <div className="flex items-center justify-center gap-3 py-24 text-muted-foreground">
+            <Loader2 className="size-5 animate-spin" />
+            Loading private workspace…
+          </div>
+        ) : !isSignedIn ? (
+          <section className="py-16">
+            <div className="flex max-w-2xl items-start gap-5">
+              <div className="grid size-14 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                <LockKeyhole className="size-6" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-semibold">Your prescription history stays private</h2>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  Sign in to save patient context, reconcile multiple prescriptions and prepare a
+                  source-traceable medication safety report.
+                </p>
+                <Button asChild className="mt-6">
+                  <Link to="/sign-in" search={{ redirect: "/medication-safety" }}>
+                    Sign in to Medication Safety
+                    <ArrowRight />
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <>
+            <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+              <label className="grid min-w-0 gap-2 text-xs font-medium text-muted-foreground">
+                PATIENT / CASE
+                <select
+                  aria-label="Select medication case"
+                  className="mk-select min-w-0 sm:w-80"
+                  value={c?.id ?? ""}
+                  disabled={busy}
+                  onChange={(e) => {
+                    if (!e.target.value) {
+                      setCase(null);
+                      setStep(0);
+                      return;
+                    }
+                    void act(() => get({ data: { id: e.target.value } }), "Saved case opened");
+                    setStep(0);
+                  }}
+                >
+                  <option value="">New patient context</option>
+                  {cases.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.identifier} · v{row.version}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  setCase(null);
+                  setStep(0);
+                  setError("");
+                  setNotice("");
+                }}
+              >
+                <Plus />
+                New case
+              </Button>
+            </div>
+            <nav aria-label="Medication workflow" className="mt-6 overflow-x-auto border-b">
+              <ol className="flex min-w-max">
+                {stages.map((s, i) => (
+                  <li key={s}>
+                    <Button
+                      variant="ghost"
+                      disabled={busy || (!c && i !== 0)}
+                      aria-current={step === i ? "step" : undefined}
+                      className={`h-16 gap-2 rounded-none border-b-2 px-4 ${step === i ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+                      onClick={() => setStep(i)}
+                    >
+                      <span
+                        className={`grid size-6 place-items-center rounded-full text-xs ${step === i ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+                      >
+                        {i + 1}
+                      </span>
+                      {s}
+                    </Button>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+            <div className="mt-7 grid items-start gap-10 xl:grid-cols-[minmax(0,1fr)_260px]">
+              <section className="min-w-0">
+                <div className="mb-6 flex items-center gap-2 text-xs text-muted-foreground">
+                  <span>WORKSPACE</span>
+                  <ChevronRight className="size-3" />
+                  <span>{stages[step]}</span>
+                  {busy && (
+                    <span role="status" className="ml-auto flex items-center gap-2">
+                      <Loader2 className="size-4 animate-spin" />
+                      Saving / processing…
+                    </span>
+                  )}
+                </div>
+                {step === 0 && (
+                  <div className="space-y-8">
+                    <h2 className="text-xl font-semibold">Patient context</h2>
+                    <ProfileForm
+                      key={c?.id ?? "new"}
+                      {...(c ? { initial: c.profile } : {})}
+                      busy={busy}
+                      onSave={(p) => {
+                        void act(
+                          () =>
+                            c
+                              ? saveProfile({ data: { id: c.id, version: c.version, profile: p } })
+                              : create({ data: p }),
+                          "Patient context saved",
+                        );
+                      }}
+                    />
+                    {c && (
+                      <RenalForm
+                        measurements={c.renal}
+                        busy={busy}
+                        onSave={(measurement) => {
+                          void act(
+                            () => renal({ data: { id: c.id, version: c.version, measurement } }),
+                            "Measurement stored; affected checks re-evaluated and previous analyses retained",
+                          );
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+                {c && step === 1 && (
+                  <UploadWorkspace
+                    c={c}
+                    services={services}
+                    busy={busy}
+                    onUpload={onUpload}
+                    onProcess={(documentId) => {
+                      void act(
+                        () => process({ data: { id: c.id, documentId } }),
+                        "Processing status saved; review the source and extracted fields",
+                      );
+                    }}
+                    onRemove={(documentId) => {
+                      void act(
+                        () => remove({ data: { id: c.id, version: c.version, documentId } }),
+                        "Prescription removed",
+                      );
+                    }}
+                    onPreview={(id) => {
+                      void onPreview(id);
+                    }}
+                    onVerify={(documentId) => {
+                      void act(
+                        () => verify({ data: { id: c.id, documentId, version: c.version } }),
+                        "Source prescription professionally verified",
+                      );
+                    }}
+                  />
+                )}
+                {c && step === 2 && (
+                  <MedicineWorkspace
+                    key={c.id}
+                    c={c}
+                    focusId={medicineFocus}
+                    busy={busy}
+                    services={services}
+                    candidates={matches}
+                    onPreview={(id) => {
+                      void onPreview(id);
+                    }}
+                    onSave={(medicine, notes) => {
+                      void act(
+                        () => correct({ data: { id: c.id, version: c.version, medicine, notes } }),
+                        "Correction saved; previous fields retained",
+                      );
+                      setMatches([]);
+                    }}
+                    onResolve={(medicineId) => {
+                      setBusy(true);
+                      setError("");
+                      resolve({ data: { id: c.id, medicineId } })
+                        .then(setMatches)
+                        .catch((e) =>
+                          setError(e instanceof Error ? e.message : "Catalogue unavailable"),
+                        )
+                        .finally(() => setBusy(false));
+                    }}
+                    onConfirm={(m, entry, decision, notes) => {
+                      void act(
+                        () =>
+                          confirm({
+                            data: {
+                              id: c.id,
+                              version: c.version,
+                              medicineId: m.id,
+                              catalogueId: entry.id,
+                              decision,
+                              notes,
+                            },
+                          }),
+                        "Professional identity decision recorded",
+                      );
+                    }}
+                  />
+                )}
+                {c && step === 3 && (
+                  <TimelineWorkspace
+                    c={c}
+                    onOpen={(id) => {
+                      setMedicineFocus(id);
+                      setMatches([]);
+                      setStep(2);
+                    }}
+                  />
+                )}
+                {c && step === 4 && (
+                  <FindingsWorkspace
+                    c={c}
+                    services={services}
+                    busy={busy}
+                    onRun={() => {
+                      void act(
+                        () => analyze({ data: { id: c.id } }),
+                        "Supported checks completed; unavailable categories remain explicit",
+                      );
+                    }}
+                    onMedicine={(id) => {setMedicineFocus(id);setMatches([]);setStep(2);}}
+                    onReview={(alert, decision, notes) => {
+                      void act(
+                        () =>
+                          review({
+                            data: {
+                              id: c.id,
+                              version: c.version,
+                              review: { alertId: alert.id, decision, notes, final: false },
+                            },
+                          }),
+                        "Professional finding decision recorded",
+                      );
+                    }}
+                  />
+                )}
+                {c && step === 5 && (
+                  <ReviewWorkspace
+                    c={c}
+                    services={services}
+                    busy={busy}
+                    onStep={setStep}
+                    onFinal={(notes) => {
+                      void act(
+                        () =>
+                          review({
+                            data: {
+                              id: c.id,
+                              version: c.version,
+                              review: { alertId: "", decision: "acknowledged", notes, final: true },
+                            },
+                          }),
+                        "Professional review completed; limitations preserved",
+                      );
+                    }}
+                  />
+                )}
+                {c && step === 6 && (
+                  <ReportWorkspace
+                    c={c}
+                    busy={busy}
+                    onGenerate={() => {
+                      void act(
+                        () => report({ data: { id: c.id } }),
+                        "Immutable report snapshot saved",
+                      );
+                    }}
+                    onDownload={(reportId) => {
+                      setBusy(true);
+                      setError("");
+                      pdf({ data: { id: c.id, reportId } })
+                        .then((bytes) => {
+                          const url = URL.createObjectURL(
+                            new Blob([new Uint8Array(bytes)], { type: "application/pdf" }),
+                          );
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `MediKiosk-Medication-Safety-${reportId}.pdf`;
+                          a.click();
+                          setTimeout(() => URL.revokeObjectURL(url), 5000);
+                        })
+                        .catch((e) =>
+                          setError(
+                            e instanceof Error
+                              ? e.message
+                              : "PDF unavailable; print the browser report instead",
+                          ),
+                        )
+                        .finally(() => setBusy(false));
+                    }}
+                  />
+                )}
+                {c && (
+                  <div className="mt-8 flex justify-between border-t pt-5">
+                    <Button
+                      variant="ghost"
+                      disabled={busy || step === 0}
+                      onClick={() => setStep((s) => s - 1)}
+                    >
+                      <ArrowLeft />
+                      Back
+                    </Button>
+                    {step < 6 && (
+                      <Button
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => setStep((s) => s + 1)}
+                      >
+                        Continue
+                        <ArrowRight />
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </section>
+              <aside className="space-y-6 border-t pt-6 xl:sticky xl:top-6 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+                <div>
+                  <h2 className="flex items-center gap-2 text-sm font-semibold">
+                    <Activity className="size-4 text-primary" />
+                    Case summary
+                  </h2>
+                  <p className="mt-3 font-semibold">
+                    {c?.profile.identifier || "New patient context"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {c ? `Saved · data version ${c.version}` : "Not saved yet"}
+                  </p>
+                </div>
+                <dl className="space-y-3 text-sm">
+                  {[
+                    ["Prescriptions", c?.prescriptions.length ?? 0],
+                    ["Medicines", c?.medicines.length ?? 0],
+                    ["Verified identities", verified],
+                    ["Identity unresolved", (c?.medicines.length ?? 0) - verified],
+                    [
+                      "Incomplete checks",
+                      analysis?.checks.filter((k) => k.status !== "completed").length ?? "Not run",
+                    ],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex justify-between gap-3">
+                      <dt className="text-muted-foreground">{label}</dt>
+                      <dd className="font-semibold">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="border-y py-4">
+                  <p className="text-xs font-semibold text-primary">
+                    {c?.approvedVersion === c?.version && c
+                      ? "PROFESSIONALLY REVIEWED"
+                      : "PROFESSIONAL REVIEW PENDING"}
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    {!c?.profile.allergies ? "Allergies not recorded. " : ""}
+                    {!c?.renal.length ? "Kidney function not recorded. " : ""}No missing result is
+                    treated as normal.
+                  </p>
+                </div>
+                <div className="space-y-2 text-xs text-muted-foreground">
+                  <p className="font-semibold text-foreground">Knowledge availability</p>
+                  <p>Indian catalogue: {services?.catalogue ? "Configured" : "Unavailable"}</p>
+                  <p>Reviewed clinical rules: {services?.rules ? "Configured" : "Unavailable"}</p>
+                  <p>
+                    External processing:{" "}
+                    {services?.externalProcessingApproved
+                      ? "Operator approved"
+                      : "Privacy approval required"}
+                  </p>
+                  <p>
+                    OCR / extraction:{" "}
+                    {services?.ocr && services?.extraction ? "Configured" : "Unavailable"}
+                  </p>
+                </div>
+                {c && (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer font-medium">
+                      Case history & retention
+                    </summary>
+                    <p className="mt-3 text-muted-foreground">
+                      Versions and source documents are retained until the owner deletes the case.
+                      Reports are immutable snapshots.
+                    </p>
+                    <div className="mt-3 max-h-48 space-y-2 overflow-auto">
+                      {c.audit.map((e) => (
+                        <p key={e.id}>
+                          {e.action} · {new Date(e.at).toLocaleString()}
+                        </p>
+                      ))}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      className="mt-3 text-destructive"
+                      disabled={busy || c.owner === undefined}
+                      onClick={() => {
+                        if (
+                          !window.confirm(
+                            "Permanently delete this case, its prescriptions and all report/history records?",
+                          )
+                        )
+                          return;
+                        setBusy(true);
+                        erase({ data: { id: c.id } })
+                          .then(async () => {
+                            setCase(null);
+                            setStep(0);
+                            setCases(await list());
+                            setNotice("Case and its source files deleted");
+                          })
+                          .catch((e) =>
+                            setError(e instanceof Error ? e.message : "Deletion failed"),
+                          )
+                          .finally(() => setBusy(false));
+                      }}
+                    >
+                      <Trash2 />
+                      Delete case
+                    </Button>
+                  </details>
+                )}
+              </aside>
+            </div>
+          </>
+        )}
+        <footer className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t pt-5 text-xs text-muted-foreground">
+          <span>MediKiosk · Medication Safety Intelligence</span>
+          <span>Source-traceable. Uncertainty-visible. Professionally reviewed.</span>
+        </footer>
+      </main>
+      <Dialog
+        open={Boolean(preview)}
+        onOpenChange={(open) => {
+          if (!open) setPreview(null);
+        }}
+      >
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle className="break-all">{preview?.name}</DialogTitle>
+          </DialogHeader>
+          {preview?.mime === "application/pdf" ? (
+            <iframe
+              title="Original prescription PDF"
+              src={preview.url}
+              className="h-[65vh] w-full"
+            />
+          ) : preview ? (
+            <img
+              src={preview.url}
+              alt="Original prescription source"
+              className="max-h-[65vh] w-full object-contain"
+            />
+          ) : null}
+          {c && preview && (
+            <details>
+              <summary className="cursor-pointer text-sm">Preserved OCR source text</summary>
+              <pre className="mt-3 max-h-52 overflow-auto whitespace-pre-wrap text-xs">
+                {c.prescriptions.find((d) => d.name === preview.name)?.rawText || "No OCR text yet"}
+              </pre>
+            </details>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
