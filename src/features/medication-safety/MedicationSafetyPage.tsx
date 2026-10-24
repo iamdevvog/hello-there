@@ -142,6 +142,7 @@ export function MedicationSafetyPage() {
   ) => {
     setBusy(true);
     setError("");
+    const before = new Set(caseRef.current?.prescriptions.map((d) => d.id) ?? []);
     for (const pending of files) {
       const current = caseRef.current;
       if (!current) break;
@@ -191,6 +192,25 @@ export function MedicationSafetyPage() {
               : f,
           ),
         );
+      }
+    }
+    const current = caseRef.current;
+    if (current?.profile.consent && services?.externalProcessingApproved) {
+      const fresh = current.prescriptions.filter((d) => !before.has(d.id));
+      for (const d of fresh) {
+        setNotice(`Reading ${d.label}…`);
+        try {
+          const next = await process({ data: { id: current.id, documentId: d.id } });
+          caseRef.current = next;
+          setCase(next);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Reading failed; try again");
+        }
+      }
+      const found = caseRef.current?.medicines.length ?? 0;
+      if (fresh.length) {
+        setNotice(found ? `Found ${found} medicine${found === 1 ? "" : "s"} — please check them` : "Reading finished");
+        if (found) setStep(2);
       }
     }
     setBusy(false);
@@ -386,11 +406,22 @@ export function MedicationSafetyPage() {
                     services={services}
                     busy={busy}
                     onUpload={onUpload}
+                    onConsent={() => {
+                      void act(
+                        () =>
+                          saveProfile({
+                            data: { id: c.id, version: c.version, profile: { ...c.profile, consent: true } },
+                          }),
+                        "Automatic reading turned on",
+                      );
+                    }}
                     onProcess={(documentId) => {
                       void act(
                         () => process({ data: { id: c.id, documentId } }),
-                        "Processing status saved; review the source and extracted fields",
-                      );
+                        "Prescription read — check the medicines in the next step",
+                      ).then((r) => {
+                        if (r?.medicines.some((m) => m.documentId === documentId)) setStep(2);
+                      });
                     }}
                     onRemove={(documentId) => {
                       void act(

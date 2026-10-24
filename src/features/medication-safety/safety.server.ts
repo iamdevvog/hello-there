@@ -304,7 +304,10 @@ async function extract(rawText: string) {
     "endDate",
   ])
     fields[name] = { type: "STRING", nullable: true };
-  const response = await fetch(
+  let response: Response | undefined;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, 1500 * 2 ** attempt + Math.random() * 500));
+    response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
     {
       method: "POST",
@@ -335,9 +338,11 @@ async function extract(rawText: string) {
       }),
     },
   );
-  if (!response.ok)
+    if (response.status !== 429 && response.status < 500) break;
+  }
+  if (!response || !response.ok)
     throw new Error(
-      `Prescription extraction unavailable (${response.status}); source text remains available`,
+      `Prescription extraction unavailable (${response?.status ?? "no response"}); source text remains available`,
     );
   const body = (await response.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
