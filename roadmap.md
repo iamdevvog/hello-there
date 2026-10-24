@@ -1,5 +1,10 @@
 # Service credentials
 
+# Vercel portability
+- [ ] Remove Lovable AI runtime calls and use direct providers
+- [ ] Validate Vercel deployment configuration and document environment requirements
+- [ ] Run provider/deployment regression tests and public browser smoke checks
+
 # Medication Safety
 - [x] Add separate MediKiosk page and existing navigation entry
 - [x] Implement owner-isolated cases, private prescriptions, corrections and audit history in Turso
