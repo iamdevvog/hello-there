@@ -94,14 +94,14 @@ export async function runOcr(input: {
   // backoff before the document is marked as failed.
   let response: Response | null = null;
   let transport: OcrError | null = null;
-  for (const delay of [0, 3000, 8000, 15_000]) {
+  for (const delay of [0, 3000]) {
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
     try {
       response = await fetch(ENDPOINT, {
         method: "POST",
         headers: { apikey: key },
         body: form,
-        signal: AbortSignal.timeout(60_000),
+        signal: AbortSignal.timeout(30_000),
       });
     } catch (error) {
       const timedOut = error instanceof Error && error.name === "TimeoutError";

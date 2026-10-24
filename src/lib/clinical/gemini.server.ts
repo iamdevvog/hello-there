@@ -1,4 +1,5 @@
 import type { DocumentExtractionBody } from "./documents.types";
+import { DEFAULT_GEMINI_MODEL, generateGeminiJson } from "./gemini-api.server";
 import type { ClinicalFollowUpQuestion, ExtractionResult, SummaryBody } from "./types";
 
 /**
@@ -6,12 +7,7 @@ import type { ClinicalFollowUpQuestion, ExtractionResult, SummaryBody } from "./
  * response is schema-constrained and validated before it is stored.
  */
 
-// Preferred model first; if its allowance is used up the next one is tried so
-// a check-in is never blocked by a single model's quota.
-const MODELS = ["gemini-3.6-flash", "gemini-3.1-flash-lite", "gemini-flash-latest"] as const;
-const MODEL = MODELS[0];
-const endpointFor = (model: string) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+const MODEL = DEFAULT_GEMINI_MODEL;
 
 class AiUnavailable extends Error {
   constructor(message: string) {
@@ -25,50 +21,11 @@ async function generate(
   responseSchema: Record<string, unknown>,
   systemInstruction: string,
 ): Promise<unknown> {
-  const key = process.env["GEMINI_API_KEY"];
-  if (!key) throw new AiUnavailable("Assisted processing is not configured");
-
-  const body = JSON.stringify({
-    systemInstruction: { parts: [{ text: systemInstruction }] },
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: "application/json",
-      responseSchema,
-    },
-  });
-
-  // Rate limits and upstream hiccups are retried with backoff, then the next
-  // model in the list is tried.
-  let response: Response | null = null;
-  outer: for (const model of MODELS) {
-    for (const delay of [0, 1500, 4000]) {
-      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
-      response = await fetch(`${endpointFor(model)}?key=${key}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-      });
-      if (response.ok) break outer;
-      if (response.status === 404) break; // model not available to this key
-      if (response.status !== 429 && response.status < 500) break outer;
-    }
-  }
-
-  if (!response || !response.ok) {
-    // Never log patient content — only status.
-    throw new AiUnavailable(`Assisted processing failed (${response?.status ?? "no response"})`);
-  }
-
-  const payload = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = payload.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
-  if (!text.trim()) throw new AiUnavailable("Assisted processing returned nothing");
   try {
+    const { text } = await generateGeminiJson(prompt, responseSchema, systemInstruction);
     return JSON.parse(text);
-  } catch {
-    throw new AiUnavailable("Assisted processing returned unreadable data");
+  } catch (error) {
+    throw new AiUnavailable(error instanceof Error ? error.message : "Assisted processing is unavailable");
   }
 }
 

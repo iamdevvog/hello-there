@@ -1,5 +1,12 @@
 # Service credentials
 
+# Vercel portability
+- [x] Remove Lovable AI runtime calls and use direct providers
+- [x] Validate Vercel deployment configuration and document environment requirements
+- [x] Run provider/deployment regression tests and public browser smoke checks
+- [x] Check uploaded demo screenshot for clipped case-summary text
+- [ ] Verify real Vercel deployment and signed-in service flow — requires Vercel environment setup, deployment access and a Clerk session; direct Gemini test timed out
+
 # Medication Safety
 - [x] Add separate MediKiosk page and existing navigation entry
 - [x] Implement owner-isolated cases, private prescriptions, corrections and audit history in Turso

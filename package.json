@@ -3,6 +3,9 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -12,7 +15,9 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "format:check": "prettier --check .",
-    "check": "npm run typecheck && npm run lint"
+    "check": "npm run typecheck && npm run lint",
+    "check:env": "node --env-file-if-exists=.env scripts/check-env.mjs",
+    "test:deployment": "vitest run src/lib/clinical/providers.test.ts"
   },
   "overrides": {
     "rolldown": "1.2.1"
