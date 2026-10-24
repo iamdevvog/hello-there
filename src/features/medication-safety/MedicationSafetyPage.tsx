@@ -475,7 +475,6 @@ export function MedicationSafetyPage() {
                     focusId={medicineFocus}
                     busy={busy}
                     services={services}
-                    candidates={matches}
                     onPreview={(id) => {
                       void onPreview(id);
                     }}
@@ -487,16 +486,12 @@ export function MedicationSafetyPage() {
                       setMatches([]);
                     }}
                     onResolve={(medicineId) => {
-                      setBusy(true);
-                      setError("");
-                      resolve({ data: { id: c.id, medicineId } })
-                        .then(setMatches)
-                        .catch((e) =>
-                          setError(e instanceof Error ? e.message : "Catalogue unavailable"),
-                        )
-                        .finally(() => setBusy(false));
+                      void act(
+                        () => resolve({ data: { id: c.id, medicineId } }),
+                        "Identity verification refreshed; earlier results kept in history",
+                      );
                     }}
-                    onConfirm={(m, entry, decision, notes) => {
+                    onConfirm={(m, catalogueId, decision, notes) => {
                       void act(
                         () =>
                           confirm({
@@ -504,7 +499,7 @@ export function MedicationSafetyPage() {
                               id: c.id,
                               version: c.version,
                               medicineId: m.id,
-                              catalogueId: entry.id,
+                              catalogueId,
                               decision,
                               notes,
                             },
