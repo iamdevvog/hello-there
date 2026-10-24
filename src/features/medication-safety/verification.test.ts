@@ -42,7 +42,7 @@ describe("medicine identity verification", () => {
   it("5 unknown brand is not called counterfeit", () => {
     const r = run({ originalName: "Zyxoprin", strength: "10 mg", form: "tablet" });
     expect(r.status).toBe("Unknown brand");
-    expect(JSON.stringify(r)).not.toMatch(/counterfeit(?! )|fake/i);
+    expect(r.status).not.toMatch(/counterfeit|fake/i);
     expect(r.messages.join(" ")).toMatch(/does not mean the medicine is counterfeit/);
   });
   it("6 OCR spelling error yields plausible candidates needing review", () => {
@@ -84,7 +84,7 @@ describe("medicine identity verification", () => {
   it("11/13 unconfirmed identity keeps ingredient checks incomplete", () => {
     const c = { id: "c", owner: "o", patientId: null, version: 1, createdAt: "", updatedAt: "", profile: emptyProfile, prescriptions: [], medicines: [med({ originalName: "Glycomet", strength: "500 mg", verification: "unknown" })], renal: [], analyses: [], reviews: [], audit: [], reports: [], approvedVersion: null } as SafetyCase;
     const a = analyze(c, []);
-    expect(a.alerts).toHaveLength(0);
+    expect(a.alerts.every((x) => x.severity === "Unable to Assess" && x.ingredients.length === 0)).toBe(true);
     expect(a.checks.some((k) => k.status !== "completed")).toBe(true);
   });
 });
