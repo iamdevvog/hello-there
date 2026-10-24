@@ -4,7 +4,8 @@
 - [x] Link ElevenLabs and securely configure OCR.space
 - [x] Use the user-designated existing secret for Clerk sign-in
 - [x] Verify service access, synthetic OCR, spoken prompt output, and home/sign-in page rendering
-- [x] Verify Groq transcription with synthetic speech and assistant replies through the app; signed-in patient journey remains untested
+- [x] Verify Groq transcription with synthetic speech and assistant replies through the app
+- [x] Walk the whole check-in in a live browser from welcome to check-in code, with the case saved as ready-for-review and an assisted draft attached
 
 # Assisted Kiosk roadmap
 - [x] Add typed synthetic staff queue data and frontend API boundary
