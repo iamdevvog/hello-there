@@ -60,6 +60,10 @@ export const catalogueSchema = z.object({
   productId: z.string().optional(),
   sourceId: z.string().optional(),
   retrievedAt: z.string().optional(),
+  /** "licensed" = operator-provisioned dataset; "web" = live web evidence (never a regulatory record). */
+  provenance: z.enum(["licensed", "web"]).optional(),
+  sourceUrls: z.array(z.string()).optional(),
+  quote: z.string().optional(),
 });
 export type CatalogueEntry = z.infer<typeof catalogueSchema>;
 export const medicineSchema = z.object({
@@ -189,9 +193,12 @@ export interface SafetyCase {
   approvedVersion: number | null;
   /** Append-only identity verification history (absent on older cases). */
   verifications?: VerificationRun[];
+  /** Latest live web evidence per medicine (history kept in case versions). */
+  webEvidence?: Record<string, import("./web-evidence.server").WebEvidence>;
 }
 export interface Services {
   catalogue: boolean;
+  webEvidence: boolean;
   rules: boolean;
   ocr: boolean;
   extraction: boolean;

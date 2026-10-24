@@ -308,7 +308,10 @@ export function verifyMedicine(m: Medicine, catalogue: CatalogueEntry[], at: str
     const plausible = results.filter((r) => !r.disqualified.length && (r.score ?? 0) >= 60);
     const top = plausible[0] ?? best!;
     if (plausible.length > 1) messages.push("Multiple candidate products were found.");
-    if (conflicts.length) status = "Strong candidate — review required";
+    const webOnly = top.entry.provenance === "web";
+    if (webOnly) messages.push("Evidence comes from web pharmacy/drug-directory pages, not a regulatory record. A pharmacist must confirm.");
+    if (conflicts.length || webOnly) status = (top.score ?? 0) >= 60 ? "Strong candidate — review required" : "Partial match";
+    if (conflicts.length || webOnly) {}
     else if (plausible.length === 1 && top.method !== "Fuzzy name — candidate only" && (top.score ?? 0) >= VERIFIED_THRESHOLD && top.attributes.find((a) => a.attribute === "Dosage form")?.result === "match")
       status = "Verified catalogue match";
     else if ((top.score ?? 0) >= 60) status = "Strong candidate — review required";
