@@ -93,6 +93,31 @@ export function MedicationSafetyPage() {
       live = false;
     };
   }, [isSignedIn, list, getServices]);
+  const autoRead = useRef(new Set<string>());
+  useEffect(() => {
+    if (!c || busy || !c.profile.consent || !services?.externalProcessingApproved) return;
+    const pending = c.prescriptions.filter(
+      (d) => d.status === "Uploaded" && !autoRead.current.has(d.id),
+    );
+    if (!pending.length) return;
+    pending.forEach((d) => autoRead.current.add(d.id));
+    void (async () => {
+      setBusy(true);
+      for (const d of pending) {
+        setNotice(`Reading ${d.label}…`);
+        try {
+          const next = await process({ data: { id: c.id, documentId: d.id } });
+          caseRef.current = next;
+          setCase(next);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "Reading failed; try again");
+        }
+      }
+      const found = caseRef.current?.medicines.length ?? 0;
+      setNotice(found ? `Found ${found} medicine${found === 1 ? "" : "s"} — please check them` : "Reading finished");
+      setBusy(false);
+    })();
+  }, [c, busy, services, process]);
   useEffect(
     () => () => {
       if (preview) URL.revokeObjectURL(preview.url);
