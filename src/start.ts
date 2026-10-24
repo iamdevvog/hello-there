@@ -31,8 +31,6 @@ const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === "serverFn",
 });
 
-const baseClerkMiddleware = clerkMiddleware({ publishableKey: CLERK_PUBLISHABLE_KEY });
-
 /**
  * Resilient Clerk middleware wrapper. Ensures network issues (DNS failure, offline)
  * or instance key mismatches do not trap public kiosk and landing pages in an
@@ -40,6 +38,12 @@ const baseClerkMiddleware = clerkMiddleware({ publishableKey: CLERK_PUBLISHABLE_
  */
 const safeClerkMiddleware = createMiddleware().server(async ({ request, next }) => {
   try {
+    // The supplied Clerk credential is stored under an existing legacy name.
+    // Resolve it only on the server; a correctly named key takes precedence.
+    const baseClerkMiddleware = clerkMiddleware({
+      publishableKey: CLERK_PUBLISHABLE_KEY,
+      secretKey: process.env["CLERK_SECRET_KEY"] ?? process.env["STRIPE_TEST_API_KEY"],
+    });
     const serverHandler = (
       baseClerkMiddleware as unknown as {
         options?: {

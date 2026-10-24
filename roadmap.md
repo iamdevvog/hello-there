@@ -1,5 +1,13 @@
 # Assisted Kiosk roadmap
 
+# Service credentials
+
+- [x] Store Gemini and Turso credentials and the ElevenLabs voice selection securely
+- [x] Link ElevenLabs and securely configure OCR.space
+- [x] Use the user-designated existing secret for Clerk sign-in
+- [ ] Verify configured services and the live app
+
+
 - [x] Add typed synthetic staff queue data and frontend API boundary
 - [x] Build assisted-care provider and local queue interactions
 - [x] Build staff shell, navigation, profile, accessibility, and help
