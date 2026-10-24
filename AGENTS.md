@@ -11,3 +11,4 @@ Multilingual healthcare intake suite for patients, care teams, facility staff, p
 - **Audio Output**: Spoken kiosk prompts use ElevenLabs.
 - **Database**: All persistence is managed via Turso (libSQL).
 - **Deployment**: Vercel-ready with Nitro preset `vercel`.
+- **Clerk credentials**: Resolve the secret inside request middleware, preferring `CLERK_SECRET_KEY` with `STRIPE_TEST_API_KEY` as the user-designated legacy fallback; never expose either to the browser.
