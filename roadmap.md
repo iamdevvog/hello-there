@@ -1,5 +1,13 @@
 # Service credentials
 
+# Medication Safety
+- [ ] Add separate MediKiosk page and existing navigation entry
+- [ ] Implement owner-isolated cases, private prescriptions, corrections and audit history in Turso
+- [ ] Implement consent-gated OCR/extraction and traceable catalogue adapters
+- [ ] Implement timeline, deterministic checks, renal re-evaluation and immutable reports
+- [ ] Implement server-authorized professional review
+- [ ] Add acceptance tests, integration documentation and browser checks
+
 - [x] Store Gemini and Turso credentials and the ElevenLabs voice selection securely
 - [x] Link ElevenLabs and securely configure OCR.space
 - [x] Use the user-designated existing secret for Clerk sign-in
