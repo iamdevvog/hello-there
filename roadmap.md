@@ -4,6 +4,7 @@
 - [ ] Remove Lovable AI runtime calls and use direct providers
 - [ ] Validate Vercel deployment configuration and document environment requirements
 - [ ] Run provider/deployment regression tests and public browser smoke checks
+- [ ] Check uploaded demo screenshot for clipped case-summary text
 
 # Medication Safety
 - [x] Add separate MediKiosk page and existing navigation entry
