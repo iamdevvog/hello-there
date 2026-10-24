@@ -732,35 +732,40 @@ export async function reportPdf(id: string, reportId: string) {
   const { c } = await loadCase(id);
   const r = c.reports.find((r) => r.id === reportId);
   if (!r) throw new Error("Report unavailable");
-  const { PDFDocument, StandardFonts } = await import("pdf-lib");
+  const { PDFDocument, StandardFonts, rgb } = await import("pdf-lib");
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const lines = reportLines({ ...r.snapshot, reports: [] }, r.id, r.status, r.at);
   let page = pdf.addPage([595, 842]),
     y = 790;
   const printable = (v: string) =>
     v.replace(/[^\x20-\x7e]/g, (x) => (x === "²" ? "2" : x === "µ" ? "u" : "-"));
-  for (const line of lines) {
+  const green = rgb(0.13, 0.4, 0.27), red = rgb(0.75, 0.15, 0.15), ink = rgb(0.12, 0.12, 0.14);
+  lines.forEach((line, idx) => {
+    const isTitle = idx === 0, isStatus = idx === 1, isHead = /^\d\. /.test(line);
+    const size = isTitle ? 18 : isHead ? 14 : isStatus ? 12 : 11;
+    const f = isTitle || isHead || isStatus ? bold : font;
+    const color = isTitle || isHead ? green : isStatus ? red : ink;
+    if (isHead) {
+      y -= 14;
+      if (y < 90) { page = pdf.addPage([595, 842]); y = 790; }
+      page.drawLine({ start: { x: 42, y: y + size + 6 }, end: { x: 553, y: y + size + 6 }, thickness: 0.6, color: rgb(0.8, 0.82, 0.8) });
+    }
     const words = printable(line).split(/\s+/);
     let row = "";
     const draw = () => {
-      if (y < 55) {
-        page = pdf.addPage([595, 842]);
-        y = 790;
-      }
-      page.drawText(row, { x: 42, y, size: 10, font });
-      y -= 15;
+      if (y < 60) { page = pdf.addPage([595, 842]); y = 790; }
+      page.drawText(row, { x: 42, y, size, font: f, color });
+      y -= size * 1.5;
     };
     for (const word of words) {
-      if (font.widthOfTextAtSize(`${row} ${word}`, 10) > 505) {
-        draw();
-        row = "";
-      }
+      if (row && f.widthOfTextAtSize(`${row} ${word}`, size) > 511) { draw(); row = ""; }
       row += `${row ? " " : ""}${word}`;
     }
     draw();
-    y -= 5;
-  }
+    y -= isHead || isTitle ? 6 : 4;
+  });
   const pages = pdf.getPages();
   pages.forEach((p, i) =>
     p.drawText(`MediKiosk | ${r.status.toUpperCase()} | ${i + 1} / ${pages.length}`, {
