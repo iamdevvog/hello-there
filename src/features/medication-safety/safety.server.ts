@@ -105,7 +105,21 @@ function verifyIdentities(c: SafetyCase, catalogue: CatalogueEntry[], ids?: stri
     c.verifications.push(verifyMedicine(m, pool, new Date().toISOString(), crypto.randomUUID()));
   }
 }
-async function refreshCatalogueIdentities(c:SafetyCase){const {catalogue}=await sources();verifyIdentities(c,catalogue);for(const m of c.medicines){if(m.verification!=="verified")continue;const entry=catalogue.find(e=>e.id===m.catalogueId);if(!entry || JSON.stringify(entry.ingredients)!==JSON.stringify(m.ingredients) || m.evidence!==`${entry.source}; ${entry.reference}; verified ${entry.verifiedAt}`){m.verification="unknown";m.ingredients=[];m.catalogueId=null;m.evidence="";m.uncertainty.push("Catalogue identity changed or became unavailable; professional re-verification required");}}}
+async function refreshCatalogueIdentities(c: SafetyCase) {
+  const { catalogue } = await sources();
+  verifyIdentities(c, catalogue);
+  for (const m of c.medicines) {
+    if (m.verification !== "verified") continue;
+    const entry = [...catalogue, ...(c.webEvidence?.[m.id]?.entries ?? [])].find((e) => e.id === m.catalogueId);
+    if (!entry || JSON.stringify(entry.ingredients) !== JSON.stringify(m.ingredients)) {
+      m.verification = "unknown";
+      m.ingredients = [];
+      m.catalogueId = null;
+      m.evidence = "";
+      m.uncertainty.push("Source record changed or became unavailable; professional re-verification required");
+    }
+  }
+}
 async function save(
   c: SafetyCase,
   actor: string,
