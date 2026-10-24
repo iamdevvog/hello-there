@@ -451,6 +451,9 @@ export async function correct(id: string, medicine: unknown, version: number, no
   if (!c.prescriptions.some((d) => d.id === m.documentId))
     throw new Error("Source prescription unavailable");
   const existing = c.medicines.find((x) => x.id === m.id);
+  const document=c.prescriptions.find(d=>d.id===m.documentId);
+  if(document?.status === "Extracting") throw new Error("Wait for extraction to finish before correcting this source");
+  if(document) document.status="Needs Review";
   if (existing && existing.documentId !== m.documentId)
     throw new Error("Source prescription cannot be reassigned");
   // Browser corrections never grant catalogue verification or change ingredients.
@@ -505,6 +508,7 @@ export async function confirm(
       );
     if (m.uncertainty.length)
       throw new Error("Resolve extraction uncertainty before confirming identity");
+    if(!m.strength || !m.form || !m.instructions) throw new Error("Recorded strength, form and instructions must be clarified before confirming identity");
     m.verification = "verified";
     m.catalogueId = entry.id;
     m.brand = entry.brand;

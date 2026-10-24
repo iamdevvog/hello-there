@@ -113,13 +113,13 @@ export function analyze(
     });
   }
   const latest = c.renal
-    .filter((r) => r.kind === "eGFR")
+    .filter((r) => r.kind === "eGFR" && r.date<=at.slice(0,10))
     .sort((a, b) => b.date.localeCompare(a.date))
     .at(0);
   const checks: Analysis["checks"] = [
     {
       category: "Identity and ingredient overlaps",
-      status: c.medicines.some((m) => m.verification !== "verified") ? "incomplete" : "completed",
+      status: !c.medicines.length || c.prescriptions.some(d=>d.status!=="Verified") || c.medicines.some((m) => m.verification !== "verified") ? "incomplete" : "completed",
       reason:
         "Verified combination ingredients are expanded; uncertain current use remains qualified. Structural findings have no clinical severity.",
     },
