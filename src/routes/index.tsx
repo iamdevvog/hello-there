@@ -3,6 +3,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { LanguageProvider } from "@/lib/language";
 import { MediKioskHeader } from "@/features/landing/components/MediKioskHeader";
 import { HeroExperience } from "@/features/landing/components/HeroExperience";
+import { JourneyChoice } from "@/features/landing/components/JourneyChoice";
 import { HowItWorks } from "@/features/landing/components/HowItWorks";
 import { SpeakSection } from "@/features/landing/components/SpeakSection";
 import { BuiltForIndia } from "@/features/landing/components/BuiltForIndia";
@@ -73,6 +74,7 @@ function WelcomePage() {
 
       <main id="main-content" tabIndex={-1}>
         <HeroExperience onStart={start} />
+        <JourneyChoice />
         <HowItWorks />
         <SpeakSection />
         <BuiltForIndia />
