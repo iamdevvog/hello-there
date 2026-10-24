@@ -279,6 +279,7 @@ const extractedSchema = z.object({
     .max(100),
 });
 async function extract(rawText: string) {
+  if(rawText.length>20000) throw new Error("OCR text exceeds the supported extraction size. Split the prescription into smaller files; no text has been silently discarded.");
   const key = process.env["GEMINI_API_KEY"];
   if (!key) throw new Error("Gemini prescription extraction is not configured");
   const model = "gemini-3.6-flash";
@@ -572,7 +573,7 @@ export async function review(
       c.medicines.some((m) => m.verification !== "verified") ||
       c.prescriptions.some((d) => d.status !== "Verified") ||
       a.alerts.some((f) => f.review === "pending") ||
-      c.audit.slice(c.audit.findLastIndex(e=>e.action === "Safety analysis" || e.action === "Renal measurement and re-evaluation")+1).some(e=>!["Professional review","Report generated"].includes(e.action))
+      c.audit.slice(c.audit.map(e=>e.action === "Safety analysis" || e.action === "Renal measurement and re-evaluation").lastIndexOf(true)+1).some(e=>!["Professional review","Report generated"].includes(e.action))
     )
       throw new Error(
         "Final review requires current analysis, verified documents and medicines, and an explicit decision on every finding. Re-run analysis after data changes.",

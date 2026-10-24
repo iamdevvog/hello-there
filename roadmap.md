@@ -1,12 +1,14 @@
 # Service credentials
 
 # Medication Safety
-- [ ] Add separate MediKiosk page and existing navigation entry
-- [ ] Implement owner-isolated cases, private prescriptions, corrections and audit history in Turso
-- [ ] Implement consent-gated OCR/extraction and traceable catalogue adapters
-- [ ] Implement timeline, deterministic checks, renal re-evaluation and immutable reports
-- [ ] Implement server-authorized professional review
-- [ ] Add acceptance tests, integration documentation and browser checks
+- [x] Add separate MediKiosk page and existing navigation entry
+- [x] Implement owner-isolated cases, private prescriptions, corrections and audit history in Turso
+- [x] Implement consent-gated OCR/extraction and traceable catalogue adapters
+- [x] Implement timeline, deterministic checks, renal re-evaluation and immutable reports
+- [x] Implement server-authorized professional review
+- [x] Add acceptance tests, integration documentation and public desktop/mobile browser checks
+- [ ] Verify authenticated upload-to-report workflow — blocked by unavailable Clerk test session and operator privacy approval
+- [ ] Activate licensed medicine catalogue and clinically reviewed rules — requires supplied licensed datasets and qualified reviewer provisioning
 
 - [x] Store Gemini and Turso credentials and the ElevenLabs voice selection securely
 - [x] Link ElevenLabs and securely configure OCR.space
