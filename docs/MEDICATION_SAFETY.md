@@ -16,7 +16,7 @@ Dedicated page: `/medication-safety`. The feature uses the existing TanStack Sta
 
 ## Configuration
 
-Existing `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, Clerk configuration, `OCR_SPACE_API_KEY`, and `GEMINI_API_KEY` are reused. Gemini extraction uses the existing preferred `gemini-3.6-flash`, without fallback-model substitutions in the new module.
+Existing `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, Clerk configuration, `OCR_SPACE_API_KEY`, and `GEMINI_API_KEY` are reused. Extraction calls Google directly using `GEMINI_MODEL` (default `gemini-flash-latest`); no Lovable AI fallback exists. Quota failures preserve the source for review and retry.
 
 New optional server-only integration inputs:
 
@@ -44,4 +44,4 @@ No authoritative Indian catalogue, interaction database or clinical rules were s
 - Catalogue source adapter: `MEDICATION_CATALOGUE_JSON` (licensed, traceable records; optional `manufacturer`, `marketer`, `release`, `productId`, `sourceId`, `retrievedAt`). No catalogue → "Insufficient evidence"; nothing is invented.
 - Limitations: the score is not calibrated against a labeled set yet; no packaging-photo or barcode authentication service is configured.
 - Live web evidence: `web-evidence.server.ts` uses Groq `openai/gpt-oss-120b` with `browser_search` (GROQ_API_KEY). Only medicine name/strength/form are sent. Products without a URL the search tool really returned are discarded. Web-only evidence caps status at "Strong candidate — review required".
-- Fallback: when Groq is missing, rate-limited or down, Lovable AI (Gemini + Google Search) is used; each cited page is opened and kept only if it mentions the brand.
+- If Groq is missing, rate-limited or unavailable, search records an explicit unavailable result with no invented entries. Only URLs actually returned by Groq browser search are accepted. No Lovable AI calls, page-fetch fallback or credit dependency remains.

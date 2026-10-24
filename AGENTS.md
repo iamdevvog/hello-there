@@ -10,7 +10,8 @@ Multilingual healthcare intake suite for patients, care teams, facility staff, p
 - **Patient Assistant & Voice**: Chat assistance and voice transcription (Whisper) are powered by Groq.
 - **Audio Output**: Spoken kiosk prompts use ElevenLabs.
 - **Database**: All persistence is managed via Turso (libSQL).
-- **Deployment**: Vercel-ready with Nitro preset `vercel`.
+- **Deployment**: Use Nitro's Vercel preset and generated Build Output API, with Node 22 and synchronized npm lockfile; configure request duration in nitro.config.ts so document processing fits serverless execution.
+- **Provider portability**: Share direct structured Gemini requests through gemini-api.server.ts and keep prescription schema/evidence validation in prescription-extraction.server.ts; this avoids hosting-specific AI credentials and bounds provider waits.
 - **Clerk credentials**: Resolve the secret inside request middleware, preferring `CLERK_SECRET_KEY` with `STRIPE_TEST_API_KEY` as the user-designated legacy fallback; never expose either to the browser.
 - **Medication Safety**: Keep the feature in `src/features/medication-safety` with a thin `/medication-safety` route and authenticated server functions; isolate private Turso cases and version history rather than reuse insecure encounter endpoints.
 - **Clinical authorization**: Medication Safety resolves clinician/pharmacist roles from server-owned configuration and requires owner access or an explicitly provisioned case grant; never accept roles or verification facts from browser input.
