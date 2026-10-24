@@ -52,7 +52,7 @@ export const correctMedicine = createServerFn({ method: "POST" })
   .handler(async ({ data }) =>
     (await import("./safety.server")).correct(data.id, data.medicine, data.version, data.notes),
   );
-export const resolveMedicine = createServerFn({ method: "GET" })
+export const resolveMedicine = createServerFn({ method: "POST" })
   .inputValidator((v) => caseInput.extend({ medicineId: z.string() }).parse(v))
   .handler(async ({ data }) => (await import("./safety.server")).resolve(data.id, data.medicineId));
 export const confirmMedicine = createServerFn({ method: "POST" })
@@ -60,8 +60,8 @@ export const confirmMedicine = createServerFn({ method: "POST" })
     versionInput
       .extend({
         medicineId: z.string(),
-        catalogueId: z.string(),
-        decision: z.enum(["confirm", "reject"]),
+        catalogueId: z.string().nullable(),
+        decision: z.enum(["confirm", "reject", "unresolved", "request-review"]),
         notes: z.string().min(1).max(1000),
       })
       .parse(v),

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { db } from "@/lib/clinical/clinical.server";
 import { runOcr } from "@/lib/clinical/ocr.server";
 import { analyze, reportLines, ruleSchema } from "./engine";
+import { fingerprintCatalogue, latestRun, verifyMedicine } from "./verification";
 import {
   catalogueSchema,
   candidates,
@@ -91,7 +92,17 @@ export async function loadCase(id: string) {
 }
 async function sourceFingerprint(){const s=await sources();return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(s))))).map(v=>v.toString(16).padStart(2,"0")).join("");}
 async function assertCurrentAnalysis(c:SafetyCase){const a=c.analyses.at(-1);if(!a)throw new Error("Run analysis first");const index=c.audit.map(e=>e.action==="Safety analysis"||e.action==="Renal measurement and re-evaluation").lastIndexOf(true);if(index<0 || c.audit.slice(index+1).some(e=>!["Professional review","Report generated"].includes(e.action)) || a.sourceFingerprint!==await sourceFingerprint())throw new Error("Patient data or knowledge sources changed. Re-run safety analysis before review or report generation.");}
-async function refreshCatalogueIdentities(c:SafetyCase){const {catalogue}=await sources();for(const m of c.medicines){if(m.verification!=="verified")continue;const entry=catalogue.find(e=>e.id===m.catalogueId);if(!entry || JSON.stringify(entry.ingredients)!==JSON.stringify(m.ingredients) || m.evidence!==`${entry.source}; ${entry.reference}; verified ${entry.verifiedAt}`){m.verification="unknown";m.ingredients=[];m.catalogueId=null;m.evidence="";m.uncertainty.push("Catalogue identity changed or became unavailable; professional re-verification required");}}}
+function verifyIdentities(c: SafetyCase, catalogue: CatalogueEntry[], ids?: string[], force = false) {
+  c.verifications ??= [];
+  const fp = fingerprintCatalogue(catalogue);
+  for (const m of c.medicines) {
+    if (ids && !ids.includes(m.id)) continue;
+    const prev = latestRun(c.verifications, m.id);
+    if (!force && prev && prev.catalogueFingerprint === fp && prev.originalName === m.originalName) continue;
+    c.verifications.push(verifyMedicine(m, catalogue, new Date().toISOString(), crypto.randomUUID()));
+  }
+}
+async function refreshCatalogueIdentities(c:SafetyCase){const {catalogue}=await sources();verifyIdentities(c,catalogue);for(const m of c.medicines){if(m.verification!=="verified")continue;const entry=catalogue.find(e=>e.id===m.catalogueId);if(!entry || JSON.stringify(entry.ingredients)!==JSON.stringify(m.ingredients) || m.evidence!==`${entry.source}; ${entry.reference}; verified ${entry.verifiedAt}`){m.verification="unknown";m.ingredients=[];m.catalogueId=null;m.evidence="";m.uncertainty.push("Catalogue identity changed or became unavailable; professional re-verification required");}}}
 async function save(
   c: SafetyCase,
   actor: string,
@@ -489,6 +500,7 @@ export async function processPrescriptionFile(id: string, documentId: string) {
         m.uncertainty.push("Missing strength or instructions; human clarification needed");
       c.medicines.push(medicineSchema.parse(m));
     }
+    verifyIdentities(c, (await sources()).catalogue, c.medicines.filter((m) => m.documentId === documentId).map((m) => m.id), true);
     d.status = "Needs Review";
     d.error = parsed.medicines.length
       ? null
@@ -540,6 +552,7 @@ export async function correct(id: string, medicine: unknown, version: number, no
   if (existing) {
     c.medicines = c.medicines.map((x) => (x.id === m.id ? m : x));
   } else c.medicines.push(m);
+  verifyIdentities(c, (await sources()).catalogue, [m.id], true);
   c.approvedVersion = null;
   return save(
     c,
@@ -550,39 +563,35 @@ export async function correct(id: string, medicine: unknown, version: number, no
   );
 }
 export async function resolve(id: string, medicineId: string) {
-  const { c } = await loadCase(id);
-  const m = c.medicines.find((m) => m.id === medicineId);
-  if (!m) throw new Error("Medicine unavailable");
-  return candidates(m, (await sources()).catalogue);
+  const { c, actor } = await loadCase(id);
+  if (!c.medicines.some((m) => m.id === medicineId)) throw new Error("Medicine unavailable");
+  verifyIdentities(c, (await sources()).catalogue, [medicineId], true);
+  return save(c, actor.id, "Identity verification run", `${medicineId}; prior runs retained`, c.version);
 }
 export async function confirm(
   id: string,
   medicineId: string,
-  catalogueId: string,
-  decision: string,
+  catalogueId: string | null,
+  decision: "confirm" | "reject" | "unresolved" | "request-review",
   notes: string,
   version: number,
 ) {
   const { c, actor } = await loadCase(id);
-  if (!actor.professional)
+  if (!actor.professional && decision !== "request-review")
     throw new Error("A configured clinician or pharmacist must verify medicine identity");
   if (c.version !== version) throw new Error("Refresh this changed case");
   const m = c.medicines.find((m) => m.id === medicineId);
   if (!m) throw new Error("Medicine unavailable");
-  if (decision === "reject") {
-    m.verification = "unknown";
-    m.catalogueId = null;
-    m.ingredients = [];
-    m.evidence = "";
-  } else {
-    const entry = (await sources()).catalogue.find((x) => x.id === catalogueId);
+  const { catalogue } = await sources();
+  verifyIdentities(c, catalogue, [medicineId]);
+  const run = latestRun(c.verifications, medicineId);
+  if (decision === "confirm") {
+    const entry = catalogue.find((x) => x.id === catalogueId);
     if (!entry) throw new Error("Licensed catalogue entry unavailable");
-    const match = candidates(m, [entry])[0];
-    if (!match || match.status === "conflict")
-      throw new Error(
-        "Conflicting strength/form or insufficient identity information; correct and clarify first",
-      );
-    if (m.uncertainty.length)
+    const match = run?.candidates.find((r) => r.entryId === entry.id);
+    if (!match || match.disqualified.length || match.score === null)
+      throw new Error("Conflicting or insufficient identity information; correct and clarify first");
+    if (m.uncertainty.some((u) => !/identity requires verification/i.test(u)))
       throw new Error("Resolve extraction uncertainty before confirming identity");
     if(!m.strength || !m.form || !m.instructions) throw new Error("Recorded strength, form and instructions must be clarified before confirming identity");
     m.verification = "verified";
@@ -590,18 +599,25 @@ export async function confirm(
     m.brand = entry.brand;
     m.ingredients = entry.ingredients;
     m.evidence = `${entry.source}; ${entry.reference}; verified ${entry.verifiedAt}`;
+    m.uncertainty = m.uncertainty.filter((u) => !/identity requires verification/i.test(u));
+  } else if (decision !== "request-review") {
+    m.verification = decision === "unresolved" ? "insufficient" : "unknown";
+    m.catalogueId = null;
+    m.ingredients = [];
+    m.evidence = "";
   }
+  run?.reviewerDecisions.push({ decision, candidateId: catalogueId, actor: actor.id, role: actor.role, at: new Date().toISOString(), notes });
   c.approvedVersion = null;
   c.reviews.push({
     actor: actor.id,
     role: actor.role,
     at: new Date().toISOString(),
-    decision: `Identity ${decision}: ${medicineId}`,
+    decision: `Identity ${decision}: ${m.originalName}`,
     notes,
     dataVersion: version,
     analysisId: null,
   });
-  return save(c, actor.id, "Identity reviewed", `${medicineId}; ${decision}`, version);
+  return save(c, actor.id, "Identity reviewed", `${medicineId}; ${decision}; candidate ${catalogueId ?? "none"}`, version);
 }
 export async function runAnalysis(id: string) {
   const { c, actor } = await loadCase(id);
