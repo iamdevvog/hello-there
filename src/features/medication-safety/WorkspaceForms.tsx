@@ -21,6 +21,51 @@ export function Field({ label, children }: { label: string; children: React.Reac
     </label>
   );
 }
+const ALLERGY_CHIPS = ["Penicillin", "Sulfa drugs", "Aspirin / NSAIDs", "Ibuprofen", "Codeine", "Latex", "Peanuts"];
+const CONDITION_CHIPS = ["Diabetes", "High blood pressure", "Asthma", "Heart disease", "Kidney disease", "Liver disease", "Thyroid", "Pregnancy"];
+const AGE_CHIPS: [string, number][] = [["Child (5)", 5], ["Teen (15)", 15], ["25", 25], ["40", 40], ["55", 55], ["70", 70], ["80+", 80]];
+const splitList = (v: string) => v.split(/[,;\n]/).map((x) => x.trim()).filter(Boolean);
+
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={onClick}
+      className={`min-h-12 rounded-full border px-5 text-sm font-medium transition ${on ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-surface hover:border-primary/60"}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ChipList({ value, options, noneLabel, onChange, placeholder }: { value: string; options: string[]; noneLabel: string; onChange: (v: string) => void; placeholder: string }) {
+  const items = splitList(value);
+  const none = items.length === 1 && items[0] === noneLabel;
+  const [other, setOther] = useState("");
+  const toggle = (o: string) => {
+    const base = items.filter((x) => x !== noneLabel);
+    onChange((base.includes(o) ? base.filter((x) => x !== o) : [...base, o]).join(", "));
+  };
+  const extras = items.filter((x) => x !== noneLabel && !options.includes(x));
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Chip on={none} onClick={() => onChange(none ? "" : noneLabel)}>{noneLabel}</Chip>
+        {[...options, ...extras].map((o) => (
+          <Chip key={o} on={items.includes(o)} onClick={() => toggle(o)}>{o}</Chip>
+        ))}
+      </div>
+      <div className="flex max-w-md gap-2">
+        <Input value={other} onChange={(e) => setOther(e.target.value)} placeholder={placeholder}
+          onKeyDown={(e) => { if (e.key === "Enter" && other.trim()) { e.preventDefault(); toggle(other.trim()); setOther(""); } }} />
+        <Button type="button" variant="outline" disabled={!other.trim()} onClick={() => { toggle(other.trim()); setOther(""); }}><Plus />Add</Button>
+      </div>
+    </div>
+  );
+}
+
 export function ProfileForm({
   initial = emptyProfile,
   onSave,
@@ -31,103 +76,73 @@ export function ProfileForm({
   busy: boolean;
 }) {
   const [p, set] = useState(initial);
+  const [i, setI] = useState(0);
   const update = (key: keyof Profile, value: unknown) => set((old) => ({ ...old, [key]: value }));
+  const steps: { title: string; hint: string; body: React.ReactNode; ok: boolean; optional?: boolean }[] = [
+    { title: "Who is this for?", hint: "A name or record number is enough.", ok: Boolean(p.identifier.trim()), body: (
+      <Input autoFocus required maxLength={120} className="h-14 max-w-md text-lg" value={p.identifier} onChange={(e) => update("identifier", e.target.value)} placeholder="e.g. Aryan Garg" />
+    ) },
+    { title: "How old are they?", hint: "Tap a close value or type the exact age.", ok: true, optional: true, body: (
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-2">{AGE_CHIPS.map(([l, v]) => <Chip key={l} on={p.age === v} onClick={() => update("age", p.age === v ? null : v)}>{l}</Chip>)}</div>
+        <Input type="number" inputMode="numeric" min={0} max={130} className="h-12 w-40" placeholder="Exact age" value={p.age ?? ""} onChange={(e) => update("age", e.target.value ? Number(e.target.value) : null)} />
+      </div>
+    ) },
+    { title: "Sex", hint: "Only used where a supported rule needs it.", ok: true, optional: true, body: (
+      <div className="flex flex-wrap gap-2">
+        {([["female", "Female"], ["male", "Male"], ["other", "Other"], ["not-recorded", "Prefer not to say"]] as const).map(([v, l]) => (
+          <Chip key={v} on={p.sex === v} onClick={() => update("sex", v)}>{l}</Chip>
+        ))}
+      </div>
+    ) },
+    { title: "Weight", hint: "Skip if you don't know it.", ok: true, optional: true, body: (
+      <div className="flex max-w-xs gap-2">
+        <Input type="number" inputMode="decimal" min={0.1} step="any" className="h-12" placeholder="Weight" value={p.weight ?? ""} onChange={(e) => update("weight", e.target.value ? Number(e.target.value) : null)} />
+        <div className="flex gap-1">{(["kg", "lb"] as const).map((u) => <Chip key={u} on={p.weightUnit === u} onClick={() => update("weightUnit", u)}>{u}</Chip>)}</div>
+      </div>
+    ) },
+    { title: "Any allergies?", hint: "Tap all that apply, or add your own.", ok: true, optional: true, body: (
+      <ChipList value={p.allergies} options={ALLERGY_CHIPS} noneLabel="No known allergies" placeholder="Other allergy" onChange={(v) => update("allergies", v)} />
+    ) },
+    { title: "Any health conditions?", hint: "Tap all that apply, or add your own.", ok: true, optional: true, body: (
+      <ChipList value={p.conditions} options={CONDITION_CHIPS} noneLabel="No known conditions" placeholder="Other condition" onChange={(v) => update("conditions", v)} />
+    ) },
+    { title: "Read prescriptions automatically?", hint: "Lets MediKiosk read uploaded prescriptions for you, under your facility's privacy approval.", ok: true, body: (
+      <div className="flex flex-wrap gap-2">
+        <Chip on={p.consent} onClick={() => update("consent", true)}>Yes, read them for me</Chip>
+        <Chip on={!p.consent} onClick={() => update("consent", false)}>No, I'll type them</Chip>
+      </div>
+    ) },
+  ];
+  const s = steps[i]!;
+  const last = i === steps.length - 1;
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        onSave(p);
+        if (!s.ok) return;
+        if (last) onSave(p);
+        else setI(i + 1);
       }}
-      className="space-y-6"
+      className="rounded-2xl border bg-surface p-6 shadow-sm sm:p-10"
     >
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Patient name or record identifier">
-          <Input
-            required
-            maxLength={120}
-            value={p.identifier}
-            onChange={(e) => update("identifier", e.target.value)}
-            placeholder="Patient identifier"
-          />
-        </Field>
-        <Field label="Age (years, if known)">
-          <Input
-            type="number"
-            min={0}
-            max={130}
-            value={p.age ?? ""}
-            onChange={(e) => update("age", e.target.value ? Number(e.target.value) : null)}
-          />
-        </Field>
-        <Field label="Weight (if known)">
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              min={0.1}
-              step="any"
-              value={p.weight ?? ""}
-              onChange={(e) => update("weight", e.target.value ? Number(e.target.value) : null)}
-            />
-            <select
-              aria-label="Weight unit"
-              className="mk-select w-24"
-              value={p.weightUnit}
-              onChange={(e) => update("weightUnit", e.target.value)}
-            >
-              <option>kg</option>
-              <option>lb</option>
-            </select>
-          </div>
-        </Field>
-        <Field label="Sex (only for applicable supported rules)">
-          <select
-            className="mk-select"
-            value={p.sex}
-            onChange={(e) => update("sex", e.target.value)}
-          >
-            <option value="not-recorded">Not recorded</option>
-            <option value="female">Female</option>
-            <option value="male">Male</option>
-            <option value="other">Other</option>
-          </select>
-        </Field>
+      <div className="mb-8 flex items-center gap-3">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${((i + 1) / steps.length) * 100}%` }} />
+        </div>
+        <span className="text-xs text-muted-foreground">{i + 1} of {steps.length}</span>
       </div>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Known allergies and recorded reactions">
-          <Textarea
-            rows={3}
-            value={p.allergies}
-            onChange={(e) => update("allergies", e.target.value)}
-            placeholder="Not recorded"
-          />
-        </Field>
-        <Field label="Documented medical conditions">
-          <Textarea
-            rows={3}
-            value={p.conditions}
-            onChange={(e) => update("conditions", e.target.value)}
-            placeholder="Not recorded"
-          />
-        </Field>
+      <h3 className="text-2xl font-semibold sm:text-3xl">{s.title}</h3>
+      <p className="mt-2 text-muted-foreground">{s.hint}</p>
+      <div className="mt-8 min-h-32">{s.body}</div>
+      <div className="mt-10 flex flex-wrap items-center gap-3">
+        {i > 0 && <Button type="button" variant="ghost" size="lg" onClick={() => setI(i - 1)}>Back</Button>}
+        <Button type="submit" size="lg" className="min-w-40" disabled={busy || !s.ok}>
+          {last ? <><Save /> {busy ? "Saving…" : "Save & add prescriptions"}</> : "Continue"}
+        </Button>
+        {s.optional && !last && <Button type="button" variant="link" onClick={() => setI(i + 1)}>Skip</Button>}
+        {initial.identifier && !last && <Button type="button" variant="outline" className="ml-auto" disabled={busy || !p.identifier.trim()} onClick={() => onSave(p)}><Save />Save now</Button>}
       </div>
-      <Field label="Other relevant recorded information">
-        <Textarea value={p.notes} onChange={(e) => update("notes", e.target.value)} />
-      </Field>
-      <div className="flex items-start gap-3 border-t pt-5">
-        <Checkbox
-          id="external-consent"
-          checked={p.consent}
-          onCheckedChange={(v) => update("consent", v === true)}
-        />
-        <label htmlFor="external-consent" className="text-sm leading-relaxed">
-          I consent to external OCR and Gemini processing of these prescriptions, subject to the
-          facility’s approved privacy arrangements. Uploading alone does not send documents
-          externally.
-        </label>
-      </div>
-      <Button type="submit" disabled={busy}>
-        <Save /> {busy ? "Saving…" : "Save patient context"}
-      </Button>
     </form>
   );
 }
@@ -147,9 +162,13 @@ export function RenalForm({
   const [source, setSource] = useState("");
   const [error, setError] = useState("");
   return (
-    <div className="space-y-5">
-      <div className="border-t pt-5">
-        <h3 className="font-semibold">Kidney-function history</h3>
+    <details className="group rounded-2xl border bg-surface p-5 sm:p-6">
+      <summary className="cursor-pointer list-none font-semibold">
+        + Add a kidney test result <span className="font-normal text-muted-foreground">(optional)</span>
+      </summary>
+      <div className="mt-5 space-y-5">
+      <div>
+        <h3 className="sr-only">Kidney-function history</h3>
         <p className="mt-1 text-sm text-muted-foreground">
           Missing measurements are not normal results. Every new result is retained and triggers
           re-evaluation.
@@ -250,7 +269,8 @@ export function RenalForm({
           </p>
         )}
       </form>
-    </div>
+      </div>
+    </details>
   );
 }
 export interface PendingFile {

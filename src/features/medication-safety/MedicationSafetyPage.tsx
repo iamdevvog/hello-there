@@ -231,8 +231,8 @@ export function MedicationSafetyPage() {
             </div>
             <h1 className="text-3xl font-semibold sm:text-4xl">Medication Safety</h1>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Prescriptions, verified medicine identities and evidence-backed findings — together
-              for professional review.
+              Answer a few quick questions, upload prescriptions, and get one clear medicine list
+              and report.
             </p>
           </div>
           <div className="flex items-center gap-2 border-l-2 border-secondary pl-3 text-xs text-muted-foreground">
@@ -244,8 +244,8 @@ export function MedicationSafetyPage() {
             </span>
           </div>
         </div>
-        <div className="mt-7 flex items-start gap-3 border-y py-4 text-sm text-muted-foreground">
-          <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
+        <div className="mt-6 flex items-start gap-3 rounded-xl bg-muted px-4 py-3 text-xs text-muted-foreground">
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
           <p>
             Decision support, not prescribing. Missing information and unavailable checks remain
             visible. Do not start, stop or change medicines based on this workspace.
@@ -373,7 +373,6 @@ export function MedicationSafetyPage() {
                 </div>
                 {step === 0 && (
                   <div className="space-y-8">
-                    <h2 className="text-xl font-semibold">Patient context</h2>
                     <ProfileForm
                       key={c?.id ?? "new"}
                       {...(c ? { initial: c.profile } : {})}
@@ -384,8 +383,10 @@ export function MedicationSafetyPage() {
                             c
                               ? saveProfile({ data: { id: c.id, version: c.version, profile: p } })
                               : create({ data: p }),
-                          "Patient context saved",
-                        );
+                          "Patient details saved — now add prescriptions",
+                        ).then((r) => {
+                          if (r) setStep(1);
+                        });
                       }}
                     />
                     {c && (
