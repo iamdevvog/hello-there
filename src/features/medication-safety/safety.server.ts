@@ -759,7 +759,7 @@ export async function reportPdf(id: string, reportId: string) {
     v.replace(/[^\x20-\x7e]/g, (x) => (x === "²" ? "2" : x === "µ" ? "u" : "-"));
   const green = rgb(0.13, 0.4, 0.27), red = rgb(0.75, 0.15, 0.15), ink = rgb(0.12, 0.12, 0.14);
   lines.forEach((line, idx) => {
-    const isTitle = idx === 0, isStatus = idx === 1, isHead = /^\d\. /.test(line);
+    const isTitle = idx === 0, isStatus = idx === 1, isHead = /^\d+[A-Z]?\. /.test(line);
     const size = isTitle ? 18 : isHead ? 14 : isStatus ? 12 : 11;
     const f = isTitle || isHead || isStatus ? bold : font;
     const color = isTitle || isHead ? green : isStatus ? red : ink;
