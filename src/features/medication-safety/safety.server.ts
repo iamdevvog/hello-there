@@ -89,6 +89,9 @@ export async function loadCase(id: string) {
   }
   return { c: JSON.parse(String(row["body"])) as SafetyCase, actor, client };
 }
+async function sourceFingerprint(){const s=await sources();return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(JSON.stringify(s))))).map(v=>v.toString(16).padStart(2,"0")).join("");}
+async function assertCurrentAnalysis(c:SafetyCase){const a=c.analyses.at(-1);if(!a)throw new Error("Run analysis first");const index=c.audit.map(e=>e.action==="Safety analysis"||e.action==="Renal measurement and re-evaluation").lastIndexOf(true);if(index<0 || c.audit.slice(index+1).some(e=>!["Professional review","Report generated"].includes(e.action)) || a.sourceFingerprint!==await sourceFingerprint())throw new Error("Patient data or knowledge sources changed. Re-run safety analysis before review or report generation.");}
+async function refreshCatalogueIdentities(c:SafetyCase){const {catalogue}=await sources();for(const m of c.medicines){if(m.verification!=="verified")continue;const entry=catalogue.find(e=>e.id===m.catalogueId);if(!entry || JSON.stringify(entry.ingredients)!==JSON.stringify(m.ingredients) || m.evidence!==`${entry.source}; ${entry.reference}; verified ${entry.verifiedAt}`){m.verification="unknown";m.ingredients=[];m.catalogueId=null;m.evidence="";m.uncertainty.push("Catalogue identity changed or became unavailable; professional re-verification required");}}}
 async function save(
   c: SafetyCase,
   actor: string,
@@ -448,6 +451,7 @@ export async function correct(id: string, medicine: unknown, version: number, no
   const { c, actor } = await loadCase(id);
   if (c.version !== version) throw new Error("Refresh this changed case");
   const m = medicineSchema.parse(medicine);
+  if(m.startDate && m.endDate && m.endDate<m.startDate) throw new Error("Therapy end date cannot precede its start date");
   if (!c.prescriptions.some((d) => d.id === m.documentId))
     throw new Error("Source prescription unavailable");
   const existing = c.medicines.find((x) => x.id === m.id);
@@ -529,9 +533,11 @@ export async function confirm(
 }
 export async function runAnalysis(id: string) {
   const { c, actor } = await loadCase(id);
+  await refreshCatalogueIdentities(c);
   const expected = c.version;
   c.version = expected + 1;
   const a = analyze(c, (await sources()).rules);
+  a.sourceFingerprint=await sourceFingerprint();
   c.analyses.push(a);
   c.approvedVersion = null;
   return save(
@@ -548,8 +554,10 @@ export async function addRenal(id: string, input: unknown, version: number) {
   const r = renalSchema.parse(input);
   r.id = crypto.randomUUID();
   c.renal.push(r);
+  await refreshCatalogueIdentities(c);
   c.version = version + 1;
   const a = analyze(c, (await sources()).rules);
+  a.sourceFingerprint=await sourceFingerprint();
   c.analyses.push(a);
   c.approvedVersion = null;
   return save(
@@ -572,6 +580,7 @@ export async function review(
   const a = c.analyses.at(-1);
   if (!a) throw new Error("Run analysis before professional review");
   if (input.final) {
+    await assertCurrentAnalysis(c);
     if (
       !c.medicines.length || !c.prescriptions.length ||
       c.medicines.some((m) => m.verification !== "verified") ||
@@ -626,6 +635,7 @@ export async function verifyDocument(id: string, documentId: string, version: nu
 }
 export async function makeReport(id: string) {
   const { c, actor } = await loadCase(id);
+  await assertCurrentAnalysis(c);
   if (!c.analyses.length) throw new Error("Run analysis before generating a report");
   const { reports, ...snapshot } = structuredClone(c);
   const report = {

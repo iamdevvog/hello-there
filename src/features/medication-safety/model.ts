@@ -22,6 +22,7 @@ export const profileSchema = z.object({
   notes: z.string().max(2000),
   consent: z.boolean(),
 });
+export const therapyDate=z.string().refine(v=>!v || /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) && new Date(v).toISOString().slice(0,10)===v,"Enter a valid therapy date");
 export const renalSchema = z
   .object({
     id: z.string(),
@@ -66,8 +67,8 @@ export const medicineSchema = z.object({
   frequency: z.string().max(200),
   timing: z.string().max(200),
   duration: z.string().max(100),
-  startDate: dateValue,
-  endDate: dateValue,
+  startDate: therapyDate,
+  endDate: therapyDate,
   page: z.number().int().positive(),
   excerpt: z.string().max(2000),
   uncertainty: z.array(z.string().max(300)),
@@ -137,6 +138,7 @@ export interface Analysis {
   renalId: string | null;
   changes: { new: string[]; resolved: string[]; unchanged: string[]; uncertain: string[] };
   ruleVersions: string[];
+  sourceFingerprint?: string;
 }
 export interface Review {
   actor: string;

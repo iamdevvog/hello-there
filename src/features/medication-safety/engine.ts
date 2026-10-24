@@ -158,7 +158,7 @@ export function analyze(
         triggered =
           r.ingredients.every((i) =>
             matched.some((m) => m.ingredients.some((x) => normalize(x.name) === normalize(i))),
-          ) && matched.length >= 2;
+          );
       if (category === "renal" && matched.length) {
         if (!latest) missing.push("Dated eGFR in mL/min/1.73m²");
         else if ((Date.parse(at) - Date.parse(latest.date)) / 86400000 > (r.maxAgeDays ?? 0))
