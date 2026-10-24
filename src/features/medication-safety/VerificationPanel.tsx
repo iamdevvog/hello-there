@@ -43,6 +43,7 @@ export function VerificationPanel({
   const [notes, setNotes] = useState("");
   const chosen = run?.candidates.find((r) => r.entryId === (pick ?? run.bestCandidateId)) ?? run?.candidates[0];
   const pro = Boolean(services?.professional);
+  const web = c.webEvidence?.[medicine.id];
   return (
     <section className="space-y-5 border-t pt-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -56,8 +57,30 @@ export function VerificationPanel({
         </Button>
       </div>
 
+      {web && (
+        <div className="rounded-xl border p-4 text-sm">
+          <p className="font-medium">Live web search <span className="font-normal text-muted-foreground">· "{web.query}" · {new Date(web.at).toLocaleString()}</span></p>
+          {web.error ? (
+            <p className="mt-1 text-destructive">{web.error} Use Re-verify to try again.</p>
+          ) : (
+            <p className="mt-1 text-muted-foreground">
+              {web.entries.length} product{web.entries.length === 1 ? "" : "s"} with traceable sources found
+              {web.discarded > 0 && ` · ${web.discarded} unsourced result${web.discarded === 1 ? "" : "s"} discarded`}. Web pharmacy and directory pages are evidence, not regulatory records.
+            </p>
+          )}
+          {web.visited.length > 0 && (
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-muted-foreground">Pages searched ({web.visited.length})</summary>
+              <ul className="mt-2 space-y-1 text-xs">
+                {web.visited.map((v) => <li key={v.url}><a href={v.url} target="_blank" rel="noreferrer" className="text-primary hover:underline break-all">{v.title || v.url}</a></li>)}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+      {busy && !run && <p className="text-sm text-muted-foreground">Searching medicine sources…</p>}
       {!run ? (
-        <p className="rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">Not verified yet. Verification runs automatically after reading a prescription.</p>
+        <p className="rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">Not verified yet. Tap Verify identity to search live medicine sources.</p>
       ) : (
         <>
           <div className={`rounded-xl border p-4 ${tone[run.status]}`}>
@@ -114,8 +137,14 @@ export function VerificationPanel({
               </table>
               <div className="flex flex-wrap items-center justify-between gap-2 border-t bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                 <span>{chosen.method} · {chosen.entry.source} · verified {chosen.entry.verifiedAt}{chosen.entry.retrievedAt ? ` · retrieved ${chosen.entry.retrievedAt}` : ""}</span>
-                <a href={chosen.entry.reference} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">Open source record <ExternalLink className="size-3" /></a>
+                <span className="flex flex-wrap gap-3">
+                  {(chosen.entry.sourceUrls ?? [chosen.entry.reference]).map((u, i) => (
+                    <a key={u} href={u} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">Source {i + 1} <ExternalLink className="size-3" /></a>
+                  ))}
+                </span>
               </div>
+              {chosen.entry.quote && <p className="border-t px-3 py-2 text-xs italic text-muted-foreground">Seen on source: “{chosen.entry.quote}”</p>}
+              <p className="border-t px-3 py-2 text-xs font-medium">{chosen.entry.provenance === "web" ? "Web evidence — not a regulatory record; pharmacist confirmation required" : "Licensed catalogue record"}</p>
             </div>
           )}
 
