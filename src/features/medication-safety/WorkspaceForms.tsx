@@ -293,6 +293,7 @@ export function UploadWorkspace({
   onRemove,
   onPreview,
   onVerify,
+  onConsent,
 }: {
   c: SafetyCase;
   services: Services | null;
@@ -305,6 +306,7 @@ export function UploadWorkspace({
   onRemove: (id: string) => void;
   onPreview: (id: string) => void;
   onVerify: (id: string) => void;
+  onConsent: () => void;
 }) {
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [error, setError] = useState("");
@@ -454,14 +456,25 @@ export function UploadWorkspace({
           Upload {files.length} prescription{files.length === 1 ? "" : "s"}
         </Button>
       )}
-      {(!services?.externalProcessingApproved || !c.profile.consent) && (
-        <div className="flex gap-3 border-l-2 border-primary pl-4 text-sm text-muted-foreground">
-          <ShieldCheck className="size-5 shrink-0" />
-          <p>
-            External processing is paused. Patient consent and operator privacy approval are
-            required; private uploads and manual transcription remain available.
+      {!c.profile.consent ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+          <ShieldCheck className="size-5 shrink-0 text-primary" />
+          <p className="min-w-0 flex-1">
+            Automatic reading is off for this patient. Turn it on to let MediKiosk read the
+            prescriptions and list the medicines for you.
           </p>
+          <Button size="sm" disabled={busy} onClick={onConsent}>
+            Allow automatic reading
+          </Button>
         </div>
+      ) : !services?.externalProcessingApproved ? (
+        <p className="text-sm text-muted-foreground">
+          Automatic reading is turned off for this facility; you can still add medicines by hand.
+        </p>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Prescriptions are read automatically after upload — medicines appear in the next step.
+        </p>
       )}
       <div className="divide-y border-y">
         {c.prescriptions.map((d) => (
@@ -493,8 +506,10 @@ export function UploadWorkspace({
               >
                 <RefreshCw />
                 {d.status === "Failed" || d.status === "Extracting"
-                  ? "Retry extraction"
-                  : "Extract"}
+                  ? "Try reading again"
+                  : d.status === "Needs Review" || d.status === "Verified"
+                    ? "Read"
+                    : "Read prescription"}
               </Button>
               {services?.professional && (
                 <Button variant="outline" size="sm" disabled={busy} onClick={() => onVerify(d.id)}>
