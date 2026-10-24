@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "./WorkspaceForms";
-import { reportLines } from "./engine";
+import { ReportView } from "./ReportView";
 import type { Alert, SafetyCase, Services } from "./model";
 export function FindingsWorkspace({
   c,
@@ -447,23 +447,7 @@ export function ReportWorkspace({
               Print report
             </Button>
           </div>
-          <article id="medication-report" className="space-y-3 border-t pt-6">
-            <img src="/logo.png" alt="" className="size-10" />
-            {reportLines({ ...r.snapshot, reports: [] }, r.id, r.status, r.at).map((line, i) =>
-              /^\d\. |MEDIKIOSK/.test(line) ? (
-                <h3 key={i} className="break-words pt-5 text-lg font-semibold">
-                  {line}
-                </h3>
-              ) : (
-                <p
-                  key={i}
-                  className={`break-words text-sm leading-relaxed ${line.startsWith("DRAFT") ? "font-semibold text-destructive" : "text-muted-foreground"}`}
-                >
-                  {line}
-                </p>
-              ),
-            )}
-          </article>
+          <ReportView c={{ ...r.snapshot, reports: [] }} reportId={r.id} status={r.status} at={r.at} />
         </>
       ) : (
         <div className="py-10 text-center">
