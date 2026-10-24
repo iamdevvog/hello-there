@@ -4,6 +4,7 @@ import { db } from "@/lib/clinical/clinical.server";
 import { runOcr } from "@/lib/clinical/ocr.server";
 import { analyze, reportLines, ruleSchema } from "./engine";
 import { fingerprintCatalogue, latestRun, verifyMedicine } from "./verification";
+import { searchMedicineWeb } from "./web-evidence.server";
 import {
   catalogueSchema,
   candidates,
@@ -63,6 +64,7 @@ export async function services(): Promise<Services> {
   const s = await sources();
   return {
     catalogue: s.catalogue.length > 0,
+    webEvidence: Boolean(process.env["GROQ_API_KEY"]),
     rules: s.rules.length > 0,
     ocr: Boolean(process.env["OCR_SPACE_API_KEY"]),
     extraction: Boolean(process.env["GEMINI_API_KEY"]),
@@ -94,12 +96,13 @@ async function sourceFingerprint(){const s=await sources();return Array.from(new
 async function assertCurrentAnalysis(c:SafetyCase){const a=c.analyses.at(-1);if(!a)throw new Error("Run analysis first");const index=c.audit.map(e=>e.action==="Safety analysis"||e.action==="Renal measurement and re-evaluation").lastIndexOf(true);if(index<0 || c.audit.slice(index+1).some(e=>!["Professional review","Report generated"].includes(e.action)) || a.sourceFingerprint!==await sourceFingerprint())throw new Error("Patient data or knowledge sources changed. Re-run safety analysis before review or report generation.");}
 function verifyIdentities(c: SafetyCase, catalogue: CatalogueEntry[], ids?: string[], force = false) {
   c.verifications ??= [];
-  const fp = fingerprintCatalogue(catalogue);
   for (const m of c.medicines) {
     if (ids && !ids.includes(m.id)) continue;
+    const fp = fingerprintCatalogue([...catalogue, ...(c.webEvidence?.[m.id]?.entries ?? [])]);
     const prev = latestRun(c.verifications, m.id);
     if (!force && prev && prev.catalogueFingerprint === fp && prev.originalName === m.originalName) continue;
-    c.verifications.push(verifyMedicine(m, catalogue, new Date().toISOString(), crypto.randomUUID()));
+    const pool = [...catalogue, ...(c.webEvidence?.[m.id]?.entries ?? [])];
+    c.verifications.push(verifyMedicine(m, pool, new Date().toISOString(), crypto.randomUUID()));
   }
 }
 async function refreshCatalogueIdentities(c:SafetyCase){const {catalogue}=await sources();verifyIdentities(c,catalogue);for(const m of c.medicines){if(m.verification!=="verified")continue;const entry=catalogue.find(e=>e.id===m.catalogueId);if(!entry || JSON.stringify(entry.ingredients)!==JSON.stringify(m.ingredients) || m.evidence!==`${entry.source}; ${entry.reference}; verified ${entry.verifiedAt}`){m.verification="unknown";m.ingredients=[];m.catalogueId=null;m.evidence="";m.uncertainty.push("Catalogue identity changed or became unavailable; professional re-verification required");}}}
@@ -563,10 +566,19 @@ export async function correct(id: string, medicine: unknown, version: number, no
   );
 }
 export async function resolve(id: string, medicineId: string) {
-  const { c, actor } = await loadCase(id);
-  if (!c.medicines.some((m) => m.id === medicineId)) throw new Error("Medicine unavailable");
+  const { c: first, actor } = await loadCase(id);
+  let fresh = first;
+  const m = first.medicines.find((m) => m.id === medicineId);
+  if (!m) throw new Error("Medicine unavailable");
+  if (!first.profile.consent || process.env["MEDICATION_EXTERNAL_PROCESSING_APPROVED"] !== "true")
+    throw new Error("Web medicine search needs patient consent and operator approval for external processing");
+  // Only the medicine name/strength/form leave MediKiosk — never patient details.
+  const evidence = await searchMedicineWeb(m.id, m.originalName, m.strength, m.form);
+  ({ c: fresh } = await loadCase(id));
+  const c = fresh;
+  c.webEvidence = { ...(c.webEvidence ?? {}), [medicineId]: evidence };
   verifyIdentities(c, (await sources()).catalogue, [medicineId], true);
-  return save(c, actor.id, "Identity verification run", `${medicineId}; prior runs retained`, c.version);
+  return save(c, actor.id, "Identity verification run", `${medicineId}; web search ${evidence.error ? "failed: " + evidence.error : `${evidence.entries.length} sourced products, ${evidence.discarded} unsourced discarded`}; prior runs retained`, c.version);
 }
 export async function confirm(
   id: string,
@@ -586,8 +598,8 @@ export async function confirm(
   verifyIdentities(c, catalogue, [medicineId]);
   const run = latestRun(c.verifications, medicineId);
   if (decision === "confirm") {
-    const entry = catalogue.find((x) => x.id === catalogueId);
-    if (!entry) throw new Error("Licensed catalogue entry unavailable");
+    const entry = [...catalogue, ...(c.webEvidence?.[medicineId]?.entries ?? [])].find((x) => x.id === catalogueId);
+    if (!entry) throw new Error("Candidate record unavailable; re-verify first");
     const match = run?.candidates.find((r) => r.entryId === entry.id);
     if (!match || match.disqualified.length || match.score === null)
       throw new Error("Conflicting or insufficient identity information; correct and clarify first");
@@ -598,7 +610,7 @@ export async function confirm(
     m.catalogueId = entry.id;
     m.brand = entry.brand;
     m.ingredients = entry.ingredients;
-    m.evidence = `${entry.source}; ${entry.reference}; verified ${entry.verifiedAt}`;
+    m.evidence = `${entry.source}; ${entry.reference}; ${entry.provenance === "web" ? "web evidence retrieved" : "verified"} ${entry.verifiedAt}; pharmacist-confirmed`;
     m.uncertainty = m.uncertainty.filter((u) => !/identity requires verification/i.test(u));
   } else if (decision !== "request-review") {
     m.verification = decision === "unresolved" ? "insufficient" : "unknown";

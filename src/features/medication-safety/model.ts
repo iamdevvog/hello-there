@@ -194,7 +194,7 @@ export interface SafetyCase {
   /** Append-only identity verification history (absent on older cases). */
   verifications?: VerificationRun[];
   /** Latest live web evidence per medicine (history kept in case versions). */
-  webEvidence?: Record<string, import("./web-evidence.server").WebEvidence>;
+  webEvidence?: Record<string, WebEvidence>;
 }
 export interface Services {
   catalogue: boolean;
@@ -308,4 +308,15 @@ export function candidates(m: Medicine, catalogue: CatalogueEntry[]) {
     .filter((c) => c.rank > 0)
     .sort((a, b) => b.rank - a.rank)
     .slice(0, 12);
+}
+
+export interface WebEvidence {
+  medicineId: string;
+  query: string;
+  at: string;
+  model: string;
+  entries: CatalogueEntry[];
+  visited: { url: string; title: string }[];
+  discarded: number;
+  error: string | null;
 }

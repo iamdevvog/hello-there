@@ -1,18 +1,8 @@
 // Live web evidence for Indian medicine brands via Groq browser search.
 // Every accepted product must cite URLs the search tool actually opened or returned;
 // anything else is discarded. Results are evidence for professional review, never facts.
-import type { CatalogueEntry } from "./model";
+import type { CatalogueEntry, WebEvidence } from "./model";
 
-export interface WebEvidence {
-  medicineId: string;
-  query: string;
-  at: string;
-  model: string;
-  entries: CatalogueEntry[];
-  visited: { url: string; title: string }[];
-  discarded: number;
-  error: string | null;
-}
 
 const MODEL = "openai/gpt-oss-120b";
 const PROMPT = (q: string) =>
