@@ -87,4 +87,10 @@ describe("medicine identity verification", () => {
     expect(a.alerts.every((x) => x.severity === "Unable to Assess" && x.ingredients.length === 0)).toBe(true);
     expect(a.checks.some((k) => k.status !== "completed")).toBe(true);
   });
+  it("web-sourced evidence is never a verified catalogue match", () => {
+    const web = { ...CAT[0]!, provenance: "web" as const };
+    const r = run({ originalName: "Tab Glycomet", strength: "500 mg", form: "tablet" }, [web]);
+    expect(r.status).toBe("Strong candidate — review required");
+    expect(r.dimensions.physical.status).toBe("Not verified");
+  });
 });
