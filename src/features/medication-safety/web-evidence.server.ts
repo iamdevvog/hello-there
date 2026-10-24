@@ -106,11 +106,17 @@ async function searchViaLovable(base: WebEvidence): Promise<WebEvidence> {
   const key = process.env["LOVABLE_API_KEY"];
   const model = "google/gemini-3.8-flash";
   if (!key) return { ...base, error: "Web medicine search unavailable (Groq limited and built-in AI not configured)." };
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, "X-Lovable-AIG-SDK": "fetch" },
-    body: JSON.stringify({ model, stream: true, tools: [{ type: "google_search" }], messages: [{ role: "user", content: PROMPT(base.query) }] }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, "X-Lovable-AIG-SDK": "fetch" },
+      signal: AbortSignal.timeout(45000),
+      body: JSON.stringify({ model, stream: true, tools: [{ type: "google_search" }], messages: [{ role: "user", content: PROMPT(base.query) }] }),
+    });
+  } catch {
+    return { ...base, model, error: "Web search took too long; try again." };
+  }
   if (!res.ok || !res.body) {
     const msg = res.status === 402 ? "AI credits are used up; add credits in Settings → Plans & credits." : res.status === 429 ? "Web search is busy right now; try again in a minute." : `Web search unavailable (${res.status}).`;
     return { ...base, model, error: msg };
@@ -118,17 +124,21 @@ async function searchViaLovable(base: WebEvidence): Promise<WebEvidence> {
   const reader = res.body.getReader();
   const dec = new TextDecoder();
   let buf = "", out = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buf += dec.decode(value, { stream: true });
-    const lines = buf.split("\n");
-    buf = lines.pop() ?? "";
-    for (const l of lines) {
-      const d = l.trim().startsWith("data:") ? l.trim().slice(5).trim() : "";
-      if (!d || d === "[DONE]") continue;
-      try { out += (JSON.parse(d) as { choices?: { delta?: { content?: string } }[] }).choices?.[0]?.delta?.content ?? ""; } catch { /* partial */ }
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const l of lines) {
+        const d = l.trim().startsWith("data:") ? l.trim().slice(5).trim() : "";
+        if (!d || d === "[DONE]") continue;
+        try { out += (JSON.parse(d) as { choices?: { delta?: { content?: string } }[] }).choices?.[0]?.delta?.content ?? ""; } catch { /* partial */ }
+      }
     }
+  } catch {
+    if (!out) return { ...base, model, error: "Web search took too long; try again." };
   }
   const raw = out.match(/\{[\s\S]*\}/)?.[0];
   let products: { brand?: string; ingredients?: { name?: string; strength?: unknown; unit?: string }[]; form?: string; release?: string; manufacturer?: string; marketer?: string; sourceUrls?: string[]; quote?: string }[] = [];
