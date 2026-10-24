@@ -305,7 +305,7 @@ async function extractViaGateway(rawText: string): Promise<string> {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, "X-Lovable-AIG-SDK": "fetch" },
       body: JSON.stringify({
-        model: "google/gemini-3.6-flash",
+        model: "google/gemini-3.8-flash",
         stream: true,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
