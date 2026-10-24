@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AssistedKioskRouteImport } from './routes/assisted-kiosk'
 import { Route as ClinicianRouteImport } from './routes/clinician'
+import { Route as DemoRouteImport } from './routes/demo'
 import { Route as DocumentCheckRouteImport } from './routes/document-check'
 import { Route as MedicationSafetyRouteImport } from './routes/medication-safety'
 import { Route as OperationsRouteImport } from './routes/operations'
@@ -93,6 +94,11 @@ const AssistedKioskRoute = AssistedKioskRouteImport.update({
 const ClinicianRoute = ClinicianRouteImport.update({
   id: '/clinician',
   path: '/clinician',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoRoute = DemoRouteImport.update({
+  id: '/demo',
+  path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocumentCheckRoute = DocumentCheckRouteImport.update({
@@ -411,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/assisted-kiosk': typeof AssistedKioskRouteWithChildren
   '/clinician': typeof ClinicianRouteWithChildren
+  '/demo': typeof DemoRoute
   '/document-check': typeof DocumentCheckRoute
   '/medication-safety': typeof MedicationSafetyRoute
   '/operations': typeof OperationsRouteWithChildren
@@ -475,6 +482,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/demo': typeof DemoRoute
   '/document-check': typeof DocumentCheckRoute
   '/medication-safety': typeof MedicationSafetyRoute
   '/sign-in': typeof SignInRoute
@@ -539,6 +547,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/assisted-kiosk': typeof AssistedKioskRouteWithChildren
   '/clinician': typeof ClinicianRouteWithChildren
+  '/demo': typeof DemoRoute
   '/document-check': typeof DocumentCheckRoute
   '/medication-safety': typeof MedicationSafetyRoute
   '/operations': typeof OperationsRouteWithChildren
@@ -608,6 +617,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/assisted-kiosk'
     | '/clinician'
+    | '/demo'
     | '/document-check'
     | '/medication-safety'
     | '/operations'
@@ -672,6 +682,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/demo'
     | '/document-check'
     | '/medication-safety'
     | '/sign-in'
@@ -735,6 +746,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/assisted-kiosk'
     | '/clinician'
+    | '/demo'
     | '/document-check'
     | '/medication-safety'
     | '/operations'
@@ -803,6 +815,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AssistedKioskRoute: typeof AssistedKioskRouteWithChildren
   ClinicianRoute: typeof ClinicianRouteWithChildren
+  DemoRoute: typeof DemoRoute
   DocumentCheckRoute: typeof DocumentCheckRoute
   MedicationSafetyRoute: typeof MedicationSafetyRoute
   OperationsRoute: typeof OperationsRouteWithChildren
@@ -844,6 +857,13 @@ declare module '@tanstack/react-router' {
       path: '/clinician'
       fullPath: '/clinician'
       preLoaderRoute: typeof ClinicianRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/document-check': {
@@ -1456,6 +1476,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AssistedKioskRoute: AssistedKioskRouteWithChildren,
   ClinicianRoute: ClinicianRouteWithChildren,
+  DemoRoute: DemoRoute,
   DocumentCheckRoute: DocumentCheckRoute,
   MedicationSafetyRoute: MedicationSafetyRoute,
   OperationsRoute: OperationsRouteWithChildren,
