@@ -32,6 +32,19 @@ const stages = [
   "Professional review",
   "Report",
 ];
+/** Never let one slow request lock the page: give up waiting after `ms`. */
+function withLimit<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((res, rej) => {
+    const t = setTimeout(
+      () => rej(new Error("This is taking too long. Your saved work is kept — refresh or try again.")),
+      ms,
+    );
+    p.then(
+      (v) => { clearTimeout(t); res(v); },
+      (e) => { clearTimeout(t); rej(e); },
+    );
+  });
+}
 export function MedicationSafetyPage() {
   const { isLoaded, isSignedIn } = useAuth();
   const [c, setCase] = useState<SafetyCase | null>(null);
@@ -101,7 +114,7 @@ export function MedicationSafetyPage() {
     if (!next) return;
     autoVerify.current.add(next.id);
     setVerifying(next.originalName);
-    resolve({ data: { id: c.id, medicineId: next.id } })
+    withLimit(resolve({ data: { id: c.id, medicineId: next.id } }), 90000)
       .then((r) => {
         // Only apply if nothing else changed the case meanwhile.
         if (caseRef.current && caseRef.current.id === r.id && caseRef.current.version < r.version) { caseRef.current = r; setCase(r); }
@@ -125,7 +138,7 @@ export function MedicationSafetyPage() {
       for (const d of pending) {
         setNotice(`Reading ${d.label}…`);
         try {
-          const next = await process({ data: { id: c.id, documentId: d.id } });
+          const next = await withLimit(process({ data: { id: c.id, documentId: d.id } }), 120000);
           caseRef.current = next;
           setCase(next);
         } catch (e) {
@@ -148,7 +161,7 @@ export function MedicationSafetyPage() {
     setError("");
     setNotice("");
     try {
-      const result = await work();
+      const result = await withLimit(work(), 120000);
       caseRef.current = result;
       setCase(result);
       setNotice(message);
@@ -244,7 +257,7 @@ export function MedicationSafetyPage() {
       for (const d of fresh) {
         setNotice(`Reading ${d.label}…`);
         try {
-          const next = await process({ data: { id: current.id, documentId: d.id } });
+          const next = await withLimit(process({ data: { id: current.id, documentId: d.id } }), 120000);
           caseRef.current = next;
           setCase(next);
         } catch (e) {
@@ -508,10 +521,20 @@ export function MedicationSafetyPage() {
                       
                     }}
                     onResolve={(medicineId) => {
-                      void act(
-                        () => resolve({ data: { id: c.id, medicineId } }),
-                        "Identity verification refreshed; earlier results kept in history",
-                      );
+                      // Runs in the background so the page stays usable.
+                      const m = c.medicines.find((x) => x.id === medicineId);
+                      setVerifying(m?.originalName ?? "medicine");
+                      setError("");
+                      withLimit(resolve({ data: { id: c.id, medicineId } }), 90000)
+                        .then((r) => {
+                          if (caseRef.current?.id === r.id && caseRef.current.version < r.version) {
+                            caseRef.current = r;
+                            setCase(r);
+                          }
+                          setNotice("Identity verification refreshed; earlier results kept in history");
+                        })
+                        .catch((e) => setError(e instanceof Error ? e.message : "Verification failed; try again"))
+                        .finally(() => setVerifying(null));
                     }}
                     onConfirm={(m, catalogueId, decision, notes) => {
                       void act(
