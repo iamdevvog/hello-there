@@ -12,9 +12,9 @@ function Tag({ children, tone = "muted" }: { children: ReactNode; tone?: "muted"
 }
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-border bg-background px-4 py-3">
+    <div className="min-w-0 rounded-xl border border-border bg-background px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
+      <p className="break-words text-2xl font-bold [overflow-wrap:anywhere]">{value}</p>
       {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
@@ -93,7 +93,7 @@ export function LanguageConsent() {
 export function CheckinComplete() {
   const n = useTick(4, 700);
   return (
-    <div className="grid gap-4 lg:grid-cols-[260px_1fr_300px]">
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.4fr)_minmax(0,1fr)] [&>*]:min-w-0">
       <Box className="text-center">
         <p className="text-sm text-muted-foreground">आपका टोकन · Your token</p>
         <p className="mt-2 text-7xl font-bold text-primary">{demoPatient.token}</p>
