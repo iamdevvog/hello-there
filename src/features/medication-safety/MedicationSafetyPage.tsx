@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { AuthStatus } from "@/features/auth/AuthStatus";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProfileForm, RenalForm, UploadWorkspace, type PendingFile } from "./WorkspaceForms";
-import { MedicineWorkspace, TimelineWorkspace, type Candidate } from "./MedicineWorkspace";
+import { MedicineWorkspace, TimelineWorkspace } from "./MedicineWorkspace";
 import { FindingsWorkspace, ReportWorkspace, ReviewWorkspace } from "./FindingsWorkspace";
 import { type SafetyCase, type Services } from "./model";
 import * as api from "./safety.functions";
@@ -44,7 +44,6 @@ export function MedicationSafetyPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [matches, setMatches] = useState<Candidate[]>([]);
   const [medicineFocus,setMedicineFocus]=useState<string|null>(null);
   const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
   const caseRef = useRef(c);
@@ -483,7 +482,7 @@ export function MedicationSafetyPage() {
                         () => correct({ data: { id: c.id, version: c.version, medicine, notes } }),
                         "Correction saved; previous fields retained",
                       );
-                      setMatches([]);
+                      
                     }}
                     onResolve={(medicineId) => {
                       void act(
@@ -514,7 +513,7 @@ export function MedicationSafetyPage() {
                     c={c}
                     onOpen={(id) => {
                       setMedicineFocus(id);
-                      setMatches([]);
+                      
                       setStep(2);
                     }}
                   />
@@ -530,7 +529,7 @@ export function MedicationSafetyPage() {
                         "Supported checks completed; unavailable categories remain explicit",
                       );
                     }}
-                    onMedicine={(id) => {setMedicineFocus(id);setMatches([]);setStep(2);}}
+                    onMedicine={(id) => {setMedicineFocus(id);setStep(2);}}
                     onReview={(alert, decision, notes) => {
                       void act(
                         () =>

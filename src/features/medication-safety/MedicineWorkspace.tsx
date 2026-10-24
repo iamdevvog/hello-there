@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "./WorkspaceForms";
+import { VerificationBadge, VerificationPanel } from "./VerificationPanel";
+import { latestRun } from "./verification";
 import {
   emptyMedicine,
   timeline,
@@ -26,7 +28,6 @@ export function MedicineWorkspace({
   onSave,
   onResolve,
   onConfirm,
-  candidates: matches,
   onPreview,
 }: {
   c: SafetyCase;
@@ -37,11 +38,10 @@ export function MedicineWorkspace({
   onResolve: (id: string) => void;
   onConfirm: (
     m: Medicine,
-    c: CatalogueEntry,
-    decision: "confirm" | "reject",
+    catalogueId: string | null,
+    decision: "confirm" | "reject" | "unresolved" | "request-review",
     notes: string,
   ) => void;
-  candidates: Candidate[];
   onPreview: (id: string) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(focusId ?? c.medicines[0]?.id ?? null);
@@ -92,8 +92,9 @@ export function MedicineWorkspace({
             <span>
               <span className="block">{m.originalName}</span>
               <span className="mt-1 block text-xs opacity-75">
-                {m.verification} · {m.status}
+                {m.status}
               </span>
+              <span className="mt-1.5 block"><VerificationBadge run={latestRun(c.verifications, m.id)} /></span>
             </span>
           </Button>
         ))}
@@ -242,99 +243,19 @@ export function MedicineWorkspace({
               </Button>
             </div>
           </form>
-          <section className="border-t pt-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold">What the catalogue verifies</h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {draft.verification === "verified"
-                    ? draft.evidence
-                    : "No verified composition. A candidate match is not proof of identity."}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                disabled={busy || !selected}
-                onClick={() => {
-                  if (selected) onResolve(selected);
-                }}
-              >
-                <Search />
-                Find candidates
-              </Button>
-            </div>
-            {!services?.catalogue && (
-              <p className="mt-4 border-l-2 border-primary pl-3 text-sm text-muted-foreground">
-                Indian medicine catalogue unavailable. A traceable licensed catalogue must be
-                configured; no brand composition is guessed.
-              </p>
-            )}
-            {draft.ingredients.length > 0 && (
-              <p className="mt-3 text-sm">
-                {draft.ingredients.map((i) => `${i.name} ${i.strength} ${i.unit}`).join(" + ")}
-              </p>
-            )}
-            {matches.map((match) => (
-              <article key={match.entry.id} className="mt-4 rounded-lg border p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h4 className="font-semibold">{match.entry.brand}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {match.method} ·{" "}
-                      {match.status === "conflict"
-                        ? "Conflicting strength or formulation"
-                        : "Candidate — confirmation required"}
-                    </p>
-                  </div>
-                  <a
-                    href={match.entry.reference}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-sm text-primary"
-                  >
-                    Evidence
-                    <ExternalLink className="size-3" />
-                  </a>
-                </div>
-                <p className="mt-3 text-sm">
-                  {match.entry.ingredients
-                    .map((i) => `${i.name} ${i.strength} ${i.unit}`)
-                    .join(" + ")}{" "}
-                  · {match.entry.form}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {match.entry.source} · verified {match.entry.verifiedAt}
-                </p>
-                {match.entry.uses && (
-                  <p className="mt-2 text-sm">Source-supported uses: {match.entry.uses}</p>
-                )}
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    size="sm"
-                    disabled={
-                      busy ||
-                      !services?.professional ||
-                      !notes.trim() ||
-                      match.status === "conflict"
-                    }
-                    onClick={() => onConfirm(draft, match.entry, "confirm", notes)}
-                  >
-                    <ShieldCheck />
-                    Confirm identity
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy || !services?.professional || !notes.trim()}
-                    onClick={() => onConfirm(draft, match.entry, "reject", notes)}
-                  >
-                    <X />
-                    Reject
-                  </Button>
-                </div>
-              </article>
-            ))}
-          </section>
+          {selected && c.medicines.some((m) => m.id === selected) ? (
+            <VerificationPanel
+              key={draft.id}
+              c={c}
+              medicine={draft}
+              services={services}
+              busy={busy}
+              onRun={() => onResolve(draft.id)}
+              onDecide={(catalogueId, decision, n) => onConfirm(draft, catalogueId, decision, n)}
+            />
+          ) : (
+            <p className="border-t pt-5 text-sm text-muted-foreground">Save this medicine to run identity verification.</p>
+          )}
           <section className="border-t pt-5">
             <h3 className="text-lg font-semibold">What the safety engine flags</h3>
             {c.analyses
@@ -474,7 +395,7 @@ export function TimelineWorkspace({ c, onOpen }: { c: SafetyCase; onOpen: (id: s
                 </td>
                 <td className="px-3 py-4 align-top">
                   <span className="mk-status">{t.medicine.status}</span>
-                  <p className="mt-2 text-xs text-muted-foreground">{t.medicine.verification}</p>
+                  <p className="mt-2"><VerificationBadge run={latestRun(c.verifications, t.medicine.id)} /></p>
                 </td>
                 <td className="px-3 py-4">
                   <Button variant="ghost" size="sm" onClick={() => onOpen(t.medicine.id)}>
