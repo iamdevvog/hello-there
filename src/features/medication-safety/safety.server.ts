@@ -281,7 +281,7 @@ const extractedSchema = z.object({
     )
     .max(100),
 });
-async function extract(rawText: string) {
+export async function extractMedicines(rawText: string) {
   if(rawText.length>20000) throw new Error("OCR text exceeds the supported extraction size. Split the prescription into smaller files; no text has been silently discarded.");
   const key = process.env["GEMINI_API_KEY"];
   if (!key) throw new Error("Gemini prescription extraction is not configured");
@@ -388,7 +388,7 @@ export async function processPrescriptionFile(id: string, documentId: string) {
       `Document ${documentId}; raw source preserved`,
       c.version,
     );
-    const parsed = await extract(ocr.rawText);
+    const parsed = await extractMedicines(ocr.rawText);
     ({ c } = await loadCase(id));
     d = c.prescriptions.find((p) => p.id === documentId);
     if (!d) throw new Error("Prescription removed during processing");
