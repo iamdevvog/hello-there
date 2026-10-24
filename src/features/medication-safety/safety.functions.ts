@@ -42,7 +42,7 @@ export const uploadPrescription = createServerFn({ method: "POST" })
   );
 export const processPrescription = createServerFn({ method: "POST" })
   .inputValidator((v) => documentInput.parse(v))
-  .handler(async ({ data }) => (await import("./safety.server")).process(data.id, data.documentId));
+  .handler(async ({ data }) => (await import("./safety.server")).processPrescriptionFile(data.id, data.documentId));
 export const correctMedicine = createServerFn({ method: "POST" })
   .inputValidator((v) =>
     versionInput

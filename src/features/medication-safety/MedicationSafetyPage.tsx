@@ -45,6 +45,7 @@ export function MedicationSafetyPage() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [matches, setMatches] = useState<Candidate[]>([]);
+  const [medicineFocus,setMedicineFocus]=useState<string|null>(null);
   const [preview, setPreview] = useState<{ url: string; mime: string; name: string } | null>(null);
   const caseRef = useRef(c);
   caseRef.current = c;
@@ -434,6 +435,7 @@ export function MedicationSafetyPage() {
                   <MedicineWorkspace
                     key={c.id}
                     c={c}
+                    focusId={medicineFocus}
                     busy={busy}
                     services={services}
                     candidates={matches}
@@ -478,11 +480,10 @@ export function MedicationSafetyPage() {
                 {c && step === 3 && (
                   <TimelineWorkspace
                     c={c}
-                    onOpen={() => {
+                    onOpen={(id) => {
+                      setMedicineFocus(id);
+                      setMatches([]);
                       setStep(2);
-                      setNotice(
-                        "Open the medicine in the inventory to inspect its source and history",
-                      );
                     }}
                   />
                 )}
@@ -497,7 +498,7 @@ export function MedicationSafetyPage() {
                         "Supported checks completed; unavailable categories remain explicit",
                       );
                     }}
-                    onMedicine={() => setStep(2)}
+                    onMedicine={(id) => {setMedicineFocus(id);setMatches([]);setStep(2);}}
                     onReview={(alert, decision, notes) => {
                       void act(
                         () =>

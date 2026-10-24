@@ -342,7 +342,7 @@ async function extract(rawText: string) {
   if (!text) throw new Error("Extraction returned no usable response");
   return extractedSchema.parse(JSON.parse(text));
 }
-export async function process(id: string, documentId: string) {
+export async function processPrescriptionFile(id: string, documentId: string) {
   let { c, actor, client } = await loadCase(id);
   let d = c.prescriptions.find((p) => p.id === documentId);
   if (!d) throw new Error("Prescription unavailable");
@@ -363,7 +363,7 @@ export async function process(id: string, documentId: string) {
       sql: "SELECT bytes FROM medication_safety_files WHERE id=? AND case_id=?",
       args: [documentId, id],
     });
-    const b = file.rows[0]?.["bytes"];
+    const b: unknown = file.rows[0]?.["bytes"];
     if (!(b instanceof ArrayBuffer) && !(b instanceof Uint8Array))
       throw new Error("Original file unavailable");
     const ocr = await runOcr({ bytes: new Uint8Array(b), fileName: d.name, mimeType: d.mime });
@@ -568,16 +568,18 @@ export async function review(
   if (!a) throw new Error("Run analysis before professional review");
   if (input.final) {
     if (
+      !c.medicines.length || !c.prescriptions.length ||
       c.medicines.some((m) => m.verification !== "verified") ||
       c.prescriptions.some((d) => d.status !== "Verified") ||
       a.alerts.some((f) => f.review === "pending") ||
-      a.dataVersion !== c.version - c.reviews.filter((r) => r.analysisId === a.id).length
+      c.audit.slice(c.audit.findLastIndex(e=>e.action === "Safety analysis" || e.action === "Renal measurement and re-evaluation")+1).some(e=>!["Professional review","Report generated"].includes(e.action))
     )
       throw new Error(
         "Final review requires current analysis, verified documents and medicines, and an explicit decision on every finding. Re-run analysis after data changes.",
       );
     c.approvedVersion = version + 1;
   } else {
+    c.approvedVersion = null;
     const alert = a.alerts.find((f) => f.id === input.alertId);
     if (!alert) throw new Error("Finding unavailable");
     alert.review = z.enum(["acknowledged", "follow-up", "dismissed"]).parse(input.decision);
@@ -630,6 +632,7 @@ export async function makeReport(id: string) {
     snapshot,
   };
   c.reports.push(report);
+  if (c.approvedVersion === c.version) c.approvedVersion = c.version + 1;
   return save(
     c,
     actor.id,
@@ -690,7 +693,7 @@ export async function fileBytes(id: string, documentId: string) {
     sql: "SELECT bytes FROM medication_safety_files WHERE id=? AND case_id=?",
     args: [documentId, id],
   });
-  const bytes = result.rows[0]?.["bytes"];
+  const bytes: unknown = result.rows[0]?.["bytes"];
   if (!(bytes instanceof ArrayBuffer) && !(bytes instanceof Uint8Array))
     throw new Error("Original file unavailable");
   return { bytes: Array.from(new Uint8Array(bytes)), mime: d.mime, name: d.name };

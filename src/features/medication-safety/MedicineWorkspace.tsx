@@ -20,6 +20,7 @@ export type Candidate = {
 };
 export function MedicineWorkspace({
   c,
+  focusId,
   busy,
   services,
   onSave,
@@ -29,6 +30,7 @@ export function MedicineWorkspace({
   onPreview,
 }: {
   c: SafetyCase;
+  focusId: string | null;
   busy: boolean;
   services: Services | null;
   onSave: (m: Medicine, notes: string) => void;
@@ -42,8 +44,8 @@ export function MedicineWorkspace({
   candidates: Candidate[];
   onPreview: (id: string) => void;
 }) {
-  const [selected, setSelected] = useState<string | null>(c.medicines[0]?.id ?? null);
-  const [draft, setDraft] = useState<Medicine | null>(c.medicines[0] ?? null);
+  const [selected, setSelected] = useState<string | null>(focusId ?? c.medicines[0]?.id ?? null);
+  const [draft, setDraft] = useState<Medicine | null>(c.medicines.find(m=>m.id===focusId) ?? c.medicines[0] ?? null);
   const [notes, setNotes] = useState("");
   useEffect(() => {
     const m = c.medicines.find((m) => m.id === selected);
