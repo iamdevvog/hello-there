@@ -137,7 +137,7 @@ async function searchViaLovable(base: WebEvidence): Promise<WebEvidence> {
     let ok = false;
     try {
       if (/^https:\/\//.test(url)) {
-        const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 MediKiosk source check" }, redirect: "follow", signal: AbortSignal.timeout(8000) });
+        const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 MediKiosk source check" }, redirect: "follow", signal: AbortSignal.timeout(5000) });
         const text = r.ok ? (await r.text()).slice(0, 400000).toLowerCase() : "";
         const word = brand.toLowerCase().split(/\s+/)[0] ?? "";
         ok = word.length > 2 && text.includes(word);
@@ -155,8 +155,9 @@ async function searchViaLovable(base: WebEvidence): Promise<WebEvidence> {
       .filter((i) => i.name && String(i.strength ?? "").trim() && i.unit)
       .map((i) => ({ name: String(i.name).slice(0, 200), strength: String(i.strength).slice(0, 100), unit: String(i.unit).slice(0, 40) }));
     if (!p.brand || !ingredients.length) { discarded++; continue; }
-    const urls: string[] = [];
-    for (const u of (p.sourceUrls ?? []).slice(0, 3)) if (await pageMentions(u, p.brand)) urls.push(u);
+    const cand = (p.sourceUrls ?? []).slice(0, 3);
+    const okList = await Promise.all(cand.map((u) => pageMentions(u, p.brand!)));
+    const urls = cand.filter((_, i) => okList[i]);
     if (!urls.length) { discarded++; continue; }
     entries.push({
       id: `web:${await hash(`${p.brand}|${JSON.stringify(ingredients)}|${p.form}|${p.release}`)}`,

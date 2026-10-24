@@ -93,18 +93,22 @@ export function MedicationSafetyPage() {
     };
   }, [isSignedIn, list, getServices]);
   const autoVerify = useRef(new Set<string>());
+  const [verifying, setVerifying] = useState<string | null>(null);
   useEffect(() => {
-    if (!c || busy || step !== 2 || !services?.webEvidence || !services.externalProcessingApproved || !c.profile.consent) return;
+    // Background check: never blocks the page's Saving/processing state.
+    if (!c || busy || verifying || step !== 2 || !services?.webEvidence || !services.externalProcessingApproved || !c.profile.consent) return;
     const next = c.medicines.find((m) => !c.webEvidence?.[m.id] && !autoVerify.current.has(m.id));
     if (!next) return;
     autoVerify.current.add(next.id);
-    setBusy(true);
-    setNotice(`Checking ${next.originalName} against live medicine sources…`);
+    setVerifying(next.originalName);
     resolve({ data: { id: c.id, medicineId: next.id } })
-      .then((r) => { caseRef.current = r; setCase(r); setNotice(`Checked ${next.originalName} — review the sources`); })
-      .catch((e) => setError(e instanceof Error ? e.message : "Medicine search failed"))
-      .finally(() => setBusy(false));
-  }, [c, busy, step, services, resolve]);
+      .then((r) => {
+        // Only apply if nothing else changed the case meanwhile.
+        if (caseRef.current && caseRef.current.id === r.id && caseRef.current.version < r.version) { caseRef.current = r; setCase(r); }
+      })
+      .catch(() => { /* shown as "not checked"; user can tap Verify identity */ })
+      .finally(() => setVerifying(null));
+  }, [c, busy, verifying, step, services, resolve]);
   const autoRead = useRef(new Set<string>());
   useEffect(() => {
     if (!c || busy || !c.profile.consent || !services?.externalProcessingApproved) return;
@@ -401,6 +405,12 @@ export function MedicationSafetyPage() {
             <div className="mt-4 grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
               <section className="min-w-0">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  {verifying && !busy && (
+                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                      Checking {verifying} against medicine sources…
+                    </span>
+                  )}
                   {busy && (
                     <span role="status" className="ml-auto flex items-center gap-2">
                       <Loader2 className="size-4 animate-spin" />
