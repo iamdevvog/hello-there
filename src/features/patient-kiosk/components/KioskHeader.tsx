@@ -11,7 +11,7 @@ export function KioskHeader() {
   const { t } = useKiosk();
 
   return (
-    <header className="border-b border-border bg-surface/85 backdrop-blur-md">
+    <header className="relative z-40 border-b border-border bg-surface/85 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-6 py-4 sm:px-10">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="" className="size-10 object-contain" />

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { LifeBuoy } from "lucide-react";
 import { useKiosk } from "@/features/patient-kiosk/kiosk-context";
 import { KioskText } from "./KioskText";
@@ -31,7 +32,7 @@ export function KioskHelp() {
         <span className="hidden sm:inline">{t("kiosk.help.button")}</span>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div className="fixed inset-0 z-50 grid place-items-center p-6">
           <button
             type="button"
@@ -43,7 +44,7 @@ export function KioskHelp() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="kiosk-help-title"
-            className="surface-panel animate-rise relative w-full max-w-xl rounded-4xl p-10 text-center"
+            className="surface-panel animate-rise relative max-h-[calc(100dvh-3rem)] w-full max-w-xl overflow-y-auto rounded-4xl p-6 text-center sm:p-10"
           >
             <KioskText
               tkey="kiosk.help.title"
@@ -69,7 +70,7 @@ export function KioskHelp() {
               {t("kiosk.help.close")}
             </button>
           </div>
-        </div>
+        </div>, document.body
       )}
     </>
   );
