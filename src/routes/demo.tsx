@@ -3,7 +3,7 @@ import { DemoTour } from "@/features/demo/DemoTour";
 
 export const Route = createFileRoute("/demo")({
   validateSearch: (s: Record<string, unknown>) => ({
-    step: Math.max(0, Number(s.step ?? 0) || 0),
+    step: Math.max(0, Number(s["step"] ?? 0) || 0),
   }),
   head: () => ({
     meta: [

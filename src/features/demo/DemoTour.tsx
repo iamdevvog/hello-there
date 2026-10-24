@@ -414,7 +414,7 @@ export function DemoTour() {
   const { step: raw } = useSearch({ from: "/demo" });
   const navigate = useNavigate({ from: "/demo" });
   const step = Math.min(raw, steps.length - 1);
-  const s = steps[step];
+  const s = steps[step]!;
   const go = useCallback(
     (n: number) => navigate({ search: { step: Math.max(0, Math.min(steps.length - 1, n)) }, replace: true }),
     [navigate],
