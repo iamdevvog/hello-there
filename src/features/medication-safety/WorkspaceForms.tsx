@@ -124,9 +124,9 @@ export function ProfileForm({
         if (last) onSave(p);
         else setI(i + 1);
       }}
-      className="rounded-2xl border bg-surface p-6 shadow-sm sm:p-10"
+      className="rounded-2xl border bg-surface p-5 shadow-sm sm:p-7"
     >
-      <div className="mb-8 flex items-center gap-3">
+      <div className="mb-5 flex items-center gap-3">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${((i + 1) / steps.length) * 100}%` }} />
         </div>
@@ -134,8 +134,8 @@ export function ProfileForm({
       </div>
       <h3 className="text-2xl font-semibold sm:text-3xl">{s.title}</h3>
       <p className="mt-2 text-muted-foreground">{s.hint}</p>
-      <div className="mt-8 min-h-32">{s.body}</div>
-      <div className="mt-10 flex flex-wrap items-center gap-3">
+      <div className="mt-5 min-h-24">{s.body}</div>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         {i > 0 && <Button type="button" variant="ghost" size="lg" onClick={() => setI(i - 1)}>Back</Button>}
         <Button type="submit" size="lg" className="min-w-40" disabled={busy || !s.ok}>
           {last ? <><Save /> {busy ? "Saving…" : "Save & add prescriptions"}</> : "Continue"}

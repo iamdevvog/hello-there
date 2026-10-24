@@ -203,7 +203,7 @@ export function MedicationSafetyPage() {
         Skip to medication workspace
       </a>
       <header className="border-b bg-surface">
-        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-4 px-5 py-2 sm:px-8">
           <Link to="/" className="flex items-center gap-3">
             <img src="/logo.png" alt="" className="size-9" />
             <span className="text-xl font-semibold">MediKiosk</span>
@@ -222,34 +222,14 @@ export function MedicationSafetyPage() {
           </div>
         </div>
       </header>
-      <main id="safety-main" className="mx-auto max-w-[1440px] px-5 py-8 sm:px-8 lg:py-10">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div>
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold text-primary">
-              <ShieldCheck className="size-4" />
-              MEDICATION RECONCILIATION
-            </div>
-            <h1 className="text-3xl font-semibold sm:text-4xl">Medication Safety</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Answer a few quick questions, upload prescriptions, and get one clear medicine list
-              and report.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 border-l-2 border-secondary pl-3 text-xs text-muted-foreground">
-            <LockKeyhole className="size-4 text-secondary" />
-            <span>
-              Private patient records
-              <br />
-              Professional review required
-            </span>
-          </div>
-        </div>
-        <div className="mt-6 flex items-start gap-3 rounded-xl bg-muted px-4 py-3 text-xs text-muted-foreground">
-          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-primary" />
-          <p>
-            Decision support, not prescribing. Missing information and unavailable checks remain
-            visible. Do not start, stop or change medicines based on this workspace.
-          </p>
+      <main id="safety-main" className="mx-auto max-w-[1440px] px-5 py-4 sm:px-8">
+        <div className="flex min-w-0 items-center gap-3">
+          <ShieldCheck className="size-5 shrink-0 text-primary" />
+          <h1 className="truncate text-xl font-semibold sm:text-2xl">Medication Safety</h1>
+          <span className="hidden min-w-0 truncate text-xs text-muted-foreground md:inline">
+            Decision support only — do not change medicines based on this. Private, professional
+            review required.
+          </span>
         </div>
         {error && (
           <div
@@ -263,7 +243,7 @@ export function MedicationSafetyPage() {
           </div>
         )}
         {notice && (
-          <p role="status" className="mt-4 flex items-center gap-2 text-sm text-secondary">
+          <p role="status" className="mt-2 flex items-center gap-2 text-sm text-secondary">
             <Check className="size-4" />
             {notice}
           </p>
@@ -296,9 +276,9 @@ export function MedicationSafetyPage() {
           </section>
         ) : (
           <>
-            <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
-              <label className="grid min-w-0 gap-2 text-xs font-medium text-muted-foreground">
-                PATIENT / CASE
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+              <label className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+                Case
                 <select
                   aria-label="Select medication case"
                   className="mk-select min-w-0 sm:w-80"
@@ -336,7 +316,7 @@ export function MedicationSafetyPage() {
                 New case
               </Button>
             </div>
-            <nav aria-label="Medication workflow" className="mt-6 overflow-x-auto border-b">
+            <nav aria-label="Medication workflow" className="mt-2 overflow-x-auto border-b">
               <ol className="flex min-w-max">
                 {stages.map((s, i) => (
                   <li key={s}>
@@ -344,7 +324,7 @@ export function MedicationSafetyPage() {
                       variant="ghost"
                       disabled={busy || (!c && i !== 0)}
                       aria-current={step === i ? "step" : undefined}
-                      className={`h-16 gap-2 rounded-none border-b-2 px-4 ${step === i ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
+                      className={`h-11 gap-2 rounded-none border-b-2 px-4 ${step === i ? "border-primary text-primary" : "border-transparent text-muted-foreground"}`}
                       onClick={() => setStep(i)}
                     >
                       <span
@@ -358,12 +338,9 @@ export function MedicationSafetyPage() {
                 ))}
               </ol>
             </nav>
-            <div className="mt-7 grid items-start gap-10 xl:grid-cols-[minmax(0,1fr)_260px]">
+            <div className="mt-4 grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_260px]">
               <section className="min-w-0">
-                <div className="mb-6 flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>WORKSPACE</span>
-                  <ChevronRight className="size-3" />
-                  <span>{stages[step]}</span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   {busy && (
                     <span role="status" className="ml-auto flex items-center gap-2">
                       <Loader2 className="size-4 animate-spin" />
