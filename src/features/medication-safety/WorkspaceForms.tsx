@@ -269,7 +269,8 @@ export function RenalForm({
           </p>
         )}
       </form>
-    </div>
+      </div>
+    </details>
   );
 }
 export interface PendingFile {
