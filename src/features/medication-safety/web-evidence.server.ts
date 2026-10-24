@@ -28,7 +28,7 @@ export async function searchMedicineWeb(medicineId: string, name: string, streng
   const at = new Date().toISOString();
   const base: WebEvidence = { medicineId, query, at, model: MODEL, entries: [], visited: [], discarded: 0, error: null };
   const key = process.env["GROQ_API_KEY"];
-  if (!key) return { ...base, error: "Web medicine search is not configured (GROQ_API_KEY missing)." };
+  if (!key) return searchViaLovable(base);
   let res: Response | undefined;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt) await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
@@ -45,10 +45,7 @@ export async function searchMedicineWeb(medicineId: string, name: string, streng
     });
     if (res.status !== 429 && res.status < 500) break;
   }
-  if (!res || !res.ok) {
-    const status = res?.status ?? 0;
-    return { ...base, error: status === 429 ? "Web search is rate-limited right now; try again in a minute." : `Web search unavailable (${status || "no response"}).` };
-  }
+  if (!res || !res.ok) return searchViaLovable(base); // Groq limit/outage: use built-in Gemini search
   const body = (await res.json()) as {
     choices?: { message?: { content?: string; executed_tools?: { search_results?: { results?: { url?: string; title?: string }[] } }[] } }[];
   };
@@ -95,4 +92,81 @@ export async function searchMedicineWeb(medicineId: string, name: string, streng
     });
   }
   return { ...base, entries, visited: [...visited.values()].slice(0, 20), discarded };
+}
+
+/** Fallback: Lovable AI Gateway Gemini with Google Search. The route returns no citation
+ * metadata, so every cited URL is fetched and kept only if the page really mentions the brand. */
+async function searchViaLovable(base: WebEvidence): Promise<WebEvidence> {
+  const key = process.env["LOVABLE_API_KEY"];
+  const model = "google/gemini-3.8-flash";
+  if (!key) return { ...base, error: "Web medicine search unavailable (Groq limited and built-in AI not configured)." };
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, "X-Lovable-AIG-SDK": "fetch" },
+    body: JSON.stringify({ model, stream: true, tools: [{ type: "google_search" }], messages: [{ role: "user", content: PROMPT(base.query) }] }),
+  });
+  if (!res.ok || !res.body) {
+    const msg = res.status === 402 ? "AI credits are used up; add credits in Settings → Plans & credits." : res.status === 429 ? "Web search is busy right now; try again in a minute." : `Web search unavailable (${res.status}).`;
+    return { ...base, model, error: msg };
+  }
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = "", out = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+    for (const l of lines) {
+      const d = l.trim().startsWith("data:") ? l.trim().slice(5).trim() : "";
+      if (!d || d === "[DONE]") continue;
+      try { out += (JSON.parse(d) as { choices?: { delta?: { content?: string } }[] }).choices?.[0]?.delta?.content ?? ""; } catch { /* partial */ }
+    }
+  }
+  const raw = out.match(/\{[\s\S]*\}/)?.[0];
+  let products: { brand?: string; ingredients?: { name?: string; strength?: unknown; unit?: string }[]; form?: string; release?: string; manufacturer?: string; marketer?: string; sourceUrls?: string[]; quote?: string }[] = [];
+  try { products = (JSON.parse(raw ?? "{}") as { products?: typeof products }).products ?? []; } catch {
+    return { ...base, model, error: "Web search reply could not be read; try again." };
+  }
+  const visited: { url: string; title: string }[] = [];
+  const checked = new Map<string, boolean>();
+  const pageMentions = async (url: string, brand: string) => {
+    const k = `${canon(url)}|${brand}`;
+    if (checked.has(k)) return checked.get(k)!;
+    let ok = false;
+    try {
+      if (/^https:\/\//.test(url)) {
+        const r = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 MediKiosk source check" }, redirect: "follow", signal: AbortSignal.timeout(8000) });
+        const text = r.ok ? (await r.text()).slice(0, 400000).toLowerCase() : "";
+        const word = brand.toLowerCase().split(/\s+/)[0] ?? "";
+        ok = word.length > 2 && text.includes(word);
+        const title = text.match(/<title[^>]*>([^<]{0,200})/)?.[1]?.trim() ?? "";
+        visited.push({ url, title: ok ? title : `${title || url} (brand not found on page — discarded)` });
+      }
+    } catch { visited.push({ url, title: `${url} (could not be opened — discarded)` }); }
+    checked.set(k, ok);
+    return ok;
+  };
+  const entries: CatalogueEntry[] = [];
+  let discarded = 0;
+  for (const p of products.slice(0, 6)) {
+    const ingredients = (p.ingredients ?? [])
+      .filter((i) => i.name && String(i.strength ?? "").trim() && i.unit)
+      .map((i) => ({ name: String(i.name).slice(0, 200), strength: String(i.strength).slice(0, 100), unit: String(i.unit).slice(0, 40) }));
+    if (!p.brand || !ingredients.length) { discarded++; continue; }
+    const urls: string[] = [];
+    for (const u of (p.sourceUrls ?? []).slice(0, 3)) if (await pageMentions(u, p.brand)) urls.push(u);
+    if (!urls.length) { discarded++; continue; }
+    entries.push({
+      id: `web:${await hash(`${p.brand}|${JSON.stringify(ingredients)}|${p.form}|${p.release}`)}`,
+      brand: p.brand.slice(0, 200), aliases: [], ingredients, form: (p.form ?? "").slice(0, 100), route: "",
+      source: `Web evidence (page-checked): ${[...new Set(urls.map(host))].join(", ")}`,
+      reference: urls[0]!, verifiedAt: base.at.slice(0, 10), retrievedAt: base.at.slice(0, 10), status: "active",
+      manufacturer: p.manufacturer?.slice(0, 200) || undefined, marketer: p.marketer?.slice(0, 200) || undefined,
+      release: p.release === "modified-release" || p.release === "immediate-release" ? p.release : undefined,
+      provenance: "web", sourceUrls: urls, quote: p.quote?.slice(0, 300),
+    });
+  }
+  return { ...base, model, entries, visited: visited.slice(0, 20), discarded };
 }
