@@ -27,7 +27,7 @@ Patient, encounter, intake, document, and verification data is stored in Turso (
 - Turso (libSQL) database
 - Clerk authentication
 - Google Gemini, OCR.space, ElevenLabs, and Groq integrations
-- Deployed on Vercel
+- Vercel deployment preset (see the deployment checklist below)
 
 ## Getting started
 
@@ -49,20 +49,21 @@ Open the local address printed by Vite.
 
 ### Environment variables
 
-Copy `.env.example` to `.env` and fill in every value before running the app. All keys are server-side only; do not prefix them with `VITE_`.
+Copy `.env.example` to `.env` and fill in required values before running the app. Only `VITE_CLERK_PUBLISHABLE_KEY` is public; all other credentials stay server-side. Provider calls use your direct APIs without Lovable AI.
 
 | Variable              | Required | Used for                                              | Where to get it                                                  |
 | --------------------- | -------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
 | `TURSO_DATABASE_URL`  | Yes      | Database connection (patients, encounters, docs)      | [turso.tech](https://turso.tech) → database → Connect            |
 | `TURSO_AUTH_TOKEN`    | Yes      | Database auth token                                   | Turso → database → Create token                                  |
 | `CLERK_SECRET_KEY`    | Yes      | Server-side session verification for staff/patients   | [dashboard.clerk.com](https://dashboard.clerk.com) → API Keys    |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Yes | Public Clerk instance key, set at build time | Clerk → API Keys (same instance as secret) |
 | `GEMINI_API_KEY`      | Yes      | Adaptive intake questions, fact extraction, summaries | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | `OCR_SPACE_API_KEY`   | Yes      | Prescription and report OCR                           | [ocr.space/ocrapi](https://ocr.space/ocrapi)                     |
 | `ELEVENLABS_API_KEY`  | Yes      | Spoken kiosk prompts                                  | [elevenlabs.io](https://elevenlabs.io) → API Keys                |
 | `ELEVENLABS_VOICE_ID` | Yes      | Which ElevenLabs voice speaks                         | ElevenLabs Voice Library                                         |
 | `GROQ_API_KEY`        | Yes      | Patient assistant chat and voice transcription        | [console.groq.com/keys](https://console.groq.com/keys)           |
 
-The Clerk **publishable** key is safe in client code and lives in `src/features/auth/config.ts` — update it there when you switch Clerk instances.
+Set Clerk's public key with `VITE_CLERK_PUBLISHABLE_KEY`, and its matching server secret with `CLERK_SECRET_KEY`. The user-designated legacy Clerk-secret fallback remains supported. See [Vercel setup](docs/VERCEL.md) for optional medication/privacy/reviewer settings and quota limitations.
 
 Database tables are created automatically on the first request, so there is no migration command to run.
 
@@ -81,6 +82,8 @@ Missing keys fail gracefully per feature: the app still loads, but the dependent
 | `bun run format`       | Format supported files with Prettier    |
 | `bun run format:check` | Check formatting without changing files |
 | `bun run check`        | Run TypeScript and lint checks          |
+| `npm run check:env`    | Check required environment names without printing values |
+| `npm run test:deployment` | Run direct-provider regression tests |
 
 ## Project structure
 
@@ -168,10 +171,11 @@ The repository is Vercel-ready: `vercel.json` and `package-lock.json` configure 
 1. Push this repository to GitHub (or GitLab/Bitbucket).
 2. In Vercel, **Add New → Project** and import the repository.
 3. Leave the framework preset as **Other**; Vercel reads `vercel.json`:
-   - Install command: `npm install`
+   - Install command: `npm ci`
    - Build command: `npm run build`
-   - Output directory: `.vercel/output`
-4. Under **Settings → Environment Variables**, add every variable from `.env.example` (all of them, for Production and Preview). `.env` itself is never committed.
+   - Output directory override: **leave empty** (Nitro generates `.vercel/output` via the Build Output API)
+   - Node.js: **22.x**; allow a **120-second** function duration
+4. Under **Settings → Environment Variables**, add the required variables in `.env.example` for Production and Preview; optional medication settings are explained in [the deployment guide](docs/VERCEL.md). Secrets saved in Lovable are not copied to Vercel automatically. `.env` itself is never committed.
 5. Deploy. Database tables are created on the first request.
 6. In the Clerk dashboard, add the deployed domain to the allowed origins / production instance so sign-in works from the live URL.
 
@@ -188,6 +192,7 @@ Redeploy after changing any environment variable — Vercel only picks up new va
 ## Documentation
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — ownership, dependencies, data flow, and extension guidance
+- [`docs/VERCEL.md`](docs/VERCEL.md) — independent hosting, exact keys, limits and post-deploy checks
 - [`src/routes/README.md`](src/routes/README.md) — route filename conventions
 - [`roadmap.md`](roadmap.md) — implementation checklist
 

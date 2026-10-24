@@ -1,10 +1,11 @@
 # Service credentials
 
 # Vercel portability
-- [ ] Remove Lovable AI runtime calls and use direct providers
-- [ ] Validate Vercel deployment configuration and document environment requirements
-- [ ] Run provider/deployment regression tests and public browser smoke checks
-- [ ] Check uploaded demo screenshot for clipped case-summary text
+- [x] Remove Lovable AI runtime calls and use direct providers
+- [x] Validate Vercel deployment configuration and document environment requirements
+- [x] Run provider/deployment regression tests and public browser smoke checks
+- [x] Check uploaded demo screenshot for clipped case-summary text
+- [ ] Verify real Vercel deployment and signed-in service flow — requires Vercel environment setup, deployment access and a Clerk session; direct Gemini test timed out
 
 # Medication Safety
 - [x] Add separate MediKiosk page and existing navigation entry
