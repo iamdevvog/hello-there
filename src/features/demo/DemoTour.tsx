@@ -49,7 +49,7 @@ function Pill_({ children, tone = "muted" }: { children: ReactNode; tone?: "mute
   }[tone];
   return <span className={`inline-flex whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${t}`}>{children}</span>;
 }
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value }: { label?: string; value?: string }) {
   return (
     <div className="rounded-xl border border-border bg-background px-4 py-3">
       <p className="text-xs text-muted-foreground">{label}</p>
