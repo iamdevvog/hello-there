@@ -1,10 +1,10 @@
-# MediKiosk frontend architecture
+# MediKiosk architecture
 
 ## Overview
 
-MediKiosk is a modular frontend monolith. One TanStack Start application hosts seven independently owned experiences while sharing a visual system and low-level utilities.
+MediKiosk is a modular frontend monolith. One TanStack Start application hosts independently owned experiences while sharing a visual system and low-level utilities.
 
-The current implementation is frontend-only. Feature API modules provide asynchronous boundaries over synthetic data so real services can be introduced later without coupling screens to transport or storage details.
+The application combines real server-backed patient intake, document processing and private Medication Safety with synthetic adapters in several staff/operations/admin screens. Turso stores persistent clinical data; Clerk verifies sessions; direct Gemini, Groq, OCR.space and ElevenLabs APIs power their respective features. Deployment does not convert demonstration adapters into real administrative services.
 
 ## Dependency direction
 
@@ -41,7 +41,7 @@ Not every feature needs every folder. Add structure only when a feature owns tha
 | Feature          | Responsibility                                                |
 | ---------------- | ------------------------------------------------------------- |
 | `landing`        | Public MediKiosk website, content, and entry calls to action  |
-| `patient-kiosk`  | Guided kiosk session and future intake steps                  |
+| `patient-kiosk`  | Guided intake, vitals, documents and saved visits             |
 | `patient`        | Personal health dashboard and patient record views            |
 | `assisted-kiosk` | Staff-assisted queue, intake, and handoff flow                |
 | `clinician`      | Clinical worklist and case-review workspace                   |
@@ -86,6 +86,6 @@ Promote code to a shared folder only after it is genuinely reused and its API is
 
 Every surface must retain semantic landmarks, keyboard access, visible focus, sufficient contrast, touch-friendly controls, reduced-motion behavior, and statuses that do not rely on color alone.
 
-## Future service integration
+## Further service integration
 
-When backend work begins, replace implementations behind feature `api.ts` modules rather than calling services directly from components. Authentication, authorization, clinical processing, document handling, and healthcare integrations require separate secure server-side designs and are not represented by the current mock actions.
+Replace remaining synthetic adapters behind their feature boundaries rather than calling credential-backed services from components. Server functions require their own authentication and authorization; UI route guards alone do not protect data.

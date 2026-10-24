@@ -10,19 +10,19 @@
 
 ## Environment checklist
 
-| Variable | Requirement |
-| --- | --- |
-| `VITE_CLERK_PUBLISHABLE_KEY` | Public key from the **same Clerk instance** as the secret. The only public variable. |
-| `CLERK_SECRET_KEY` | Clerk server secret. Legacy `STRIPE_TEST_API_KEY` is still accepted **only when it contains the user-designated Clerk secret**, not a Stripe payment key. Prefer the correct name on Vercel. |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | Existing Turso URL/token. Reusing them reuses the existing data; use another database for isolated previews. |
-| `GEMINI_API_KEY` | Direct Google AI Studio key with API access and sufficient quota/billing. |
-| `GEMINI_MODEL` | Optional Google model ID supporting structured generation. Defaults to `gemini-flash-latest`. |
-| `GROQ_API_KEY` | Direct Groq access for chat, Whisper transcription, and browser-search-capable medicine evidence. Account/model access and quotas apply. |
-| `OCR_SPACE_API_KEY` | Direct OCR.space key; current upload limit is 1 MiB/file. |
-| `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` | Direct ElevenLabs key and accessible voice. |
-| `MEDICATION_EXTERNAL_PROCESSING_APPROVED` | Set `true` only after operator privacy/security approval; patient consent is additionally required. |
-| `MEDICATION_PROFESSIONAL_ROLES` | Optional real Clerk user-ID → `clinician`/`pharmacist` JSON map. Required for professional sign-off; cross-owner cases also require an explicitly provisioned case grant. |
-| `MEDICATION_CATALOGUE_JSON` / `MEDICATION_RULES_JSON` | Optional licensed catalogue/reviewed rules. Omit when unavailable; unsupported checks remain incomplete. See `MEDICATION_SAFETY.md`. |
+| Variable                                              | Requirement                                                                                                                                                                                  |
+| ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_CLERK_PUBLISHABLE_KEY`                          | Public key from the **same Clerk instance** as the secret. The only public variable.                                                                                                         |
+| `CLERK_SECRET_KEY`                                    | Clerk server secret. Legacy `STRIPE_TEST_API_KEY` is still accepted **only when it contains the user-designated Clerk secret**, not a Stripe payment key. Prefer the correct name on Vercel. |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN`             | Existing Turso URL/token. Reusing them reuses the existing data; use another database for isolated previews.                                                                                 |
+| `GEMINI_API_KEY`                                      | Direct Google AI Studio key with API access and sufficient quota/billing.                                                                                                                    |
+| `GEMINI_MODEL`                                        | Optional Google model ID supporting structured generation. Defaults to `gemini-flash-latest`.                                                                                                |
+| `GROQ_API_KEY`                                        | Direct Groq access for chat, Whisper transcription, and browser-search-capable medicine evidence. Account/model access and quotas apply.                                                     |
+| `OCR_SPACE_API_KEY`                                   | Direct OCR.space key; current upload limit is 1 MiB/file.                                                                                                                                    |
+| `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID`          | Direct ElevenLabs key and accessible voice.                                                                                                                                                  |
+| `MEDICATION_EXTERNAL_PROCESSING_APPROVED`             | Set `true` only after operator privacy/security approval; patient consent is additionally required.                                                                                          |
+| `MEDICATION_PROFESSIONAL_ROLES`                       | Optional real Clerk user-ID → `clinician`/`pharmacist` JSON map. Required for professional sign-off; cross-owner cases also require an explicitly provisioned case grant.                    |
+| `MEDICATION_CATALOGUE_JSON` / `MEDICATION_RULES_JSON` | Optional licensed catalogue/reviewed rules. Omit when unavailable; unsupported checks remain incomplete. See `MEDICATION_SAFETY.md`.                                                         |
 
 No `LOVABLE_API_KEY`, Lovable AI credits, Lovable connector gateway or Lovable Cloud database is required by app service calls. The Lovable Vite config package is a **build-time public npm dependency**, not an AI hosting subscription; it supports the Vercel preset outside Lovable. Images hosted on existing asset CDN URLs still require those URLs to remain available.
 

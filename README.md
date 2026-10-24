@@ -1,201 +1,147 @@
 # MediKiosk
 
-MediKiosk is a multilingual healthcare intake suite for patients, care teams, facility staff, platform operators, and administrators. It runs a real backend: patient check-ins, adaptive AI questioning, document OCR with staff verification, and clinician review are all persisted.
+Multilingual healthcare intake and medication-safety application built with TanStack Start, React, Clerk and Turso. Deploys to Vercel using Nitro's generated Build Output API.
 
-## Product surfaces
+**Two separate workflows:** patient check-in prepares a visit for the care team; Medication Safety reconciles prescriptions for professional review. Neither replaces clinical judgement.
 
-| Surface             | Entry route       | Purpose                                                       |
-| ------------------- | ----------------- | ------------------------------------------------------------- |
-| Public website      | `/`               | Patient-facing introduction and kiosk entry point             |
-| Patient Kiosk       | `/patient-kiosk`  | Guided, bilingual patient intake experience                   |
-| Patient Health      | `/patient`        | Personal records, documents, consultations, and consent views |
-| Assisted Kiosk      | `/assisted-kiosk` | Staff queue and assisted-intake workspace                     |
-| Clinician Workspace | `/clinician`      | Clinical worklist and case-review experience                  |
-| Operations Console  | `/operations`     | Operational health, queues, audit, and replay tools           |
-| Admin Console       | `/admin`          | Users, roles, facilities, audit, and configuration            |
+## Quick start
 
-Patient, encounter, intake, document, and verification data is stored in Turso (libSQL). Sign-in is handled by Clerk. Clinical language work uses Google Gemini, document scanning uses OCR.space, spoken prompts use ElevenLabs, and the patient assistant chat plus speech-to-text use Groq (Whisper + GPT-OSS).
-
-## Technology
-
-- TanStack Start and TanStack Router
-- React 19 and TypeScript
-- Tailwind CSS 4
-- Radix UI primitives and shadcn/ui components
-- Vite and Nitro
-- npm package management
-- Turso (libSQL) database
-- Clerk authentication
-- Google Gemini, OCR.space, ElevenLabs, and Groq integrations
-- Vercel deployment preset (see the deployment checklist below)
-
-## Getting started
-
-### Requirements
-
-- Node.js 22 or later
-- npm 10 or later
-
-### Installation
+Requirements: **Node.js 22.x**, **npm 10+**, and accounts/keys for the services below.
 
 ```bash
-git clone <repository-url>
-cd <repository-name>
-npm install
+npm ci
+cp .env.example .env
+# Fill in the required values in .env using your provider dashboards.
+npm run check:env
 npm run dev
 ```
 
-Open the local address printed by Vite.
+Open the local address printed by Vite. Never commit `.env`, API credentials, patient documents or database exports. The example contains placeholders only.
 
-### Environment variables
+## Deploy to Vercel
 
-Copy `.env.example` to `.env` and fill in required values before running the app. Only `VITE_CLERK_PUBLISHABLE_KEY` is public; all other credentials stay server-side. Provider calls use your direct APIs without Lovable AI.
+1. Push this repository to your Git provider and import it in **Vercel → Add New → Project**.
+2. Set **Framework: Other**, **Node.js: 22.x**, **Install: npm ci**, **Build: npm run build**.
+3. **Leave Output Directory override empty.** Nitro generates `.vercel/output`; do not set `dist`, add SPA rewrites, or deploy as a static-only site.
+4. Add the environment variables below for **Production and Preview**. Keys saved in Lovable do **not** transfer to Vercel automatically.
+5. Confirm the project/plan permits **120-second functions**, as configured in `nitro.config.ts`.
+6. Configure the actual deployed domain in Clerk and use a matching publishable/secret key pair. Production hosting needs a production Clerk instance; test keys are suitable only for demonstrations.
+7. Deploy and complete the [post-deployment checks](docs/VERCEL.md#verify-after-deploying). Redeploy after environment changes, including changes to the public Clerk key.
 
-| Variable              | Required | Used for                                              | Where to get it                                                  |
-| --------------------- | -------- | ----------------------------------------------------- | ---------------------------------------------------------------- |
-| `TURSO_DATABASE_URL`  | Yes      | Database connection (patients, encounters, docs)      | [turso.tech](https://turso.tech) → database → Connect            |
-| `TURSO_AUTH_TOKEN`    | Yes      | Database auth token                                   | Turso → database → Create token                                  |
-| `CLERK_SECRET_KEY`    | Yes      | Server-side session verification for staff/patients   | [dashboard.clerk.com](https://dashboard.clerk.com) → API Keys    |
-| `VITE_CLERK_PUBLISHABLE_KEY` | Yes | Public Clerk instance key, set at build time | Clerk → API Keys (same instance as secret) |
-| `GEMINI_API_KEY`      | Yes      | Adaptive intake questions, fact extraction, summaries | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
-| `OCR_SPACE_API_KEY`   | Yes      | Prescription and report OCR                           | [ocr.space/ocrapi](https://ocr.space/ocrapi)                     |
-| `ELEVENLABS_API_KEY`  | Yes      | Spoken kiosk prompts                                  | [elevenlabs.io](https://elevenlabs.io) → API Keys                |
-| `ELEVENLABS_VOICE_ID` | Yes      | Which ElevenLabs voice speaks                         | ElevenLabs Voice Library                                         |
-| `GROQ_API_KEY`        | Yes      | Patient assistant chat and voice transcription        | [console.groq.com/keys](https://console.groq.com/keys)           |
+This repository is prepared for deployment, **not a claim that a Vercel deployment or authenticated clinical workflow has already been verified**.
 
-Set Clerk's public key with `VITE_CLERK_PUBLISHABLE_KEY`, and its matching server secret with `CLERK_SECRET_KEY`. The user-designated legacy Clerk-secret fallback remains supported. See [Vercel setup](docs/VERCEL.md) for optional medication/privacy/reviewer settings and quota limitations.
+## Environment variables
 
-Database tables are created automatically on the first request, so there is no migration command to run.
+Only `VITE_CLERK_PUBLISHABLE_KEY` is public/build-time. Every other credential must stay server-side. See [.env.example](.env.example) for a copyable template and [docs/VERCEL.md](docs/VERCEL.md) for full setup, quotas and troubleshooting.
 
-Missing keys fail gracefully per feature: the app still loads, but the dependent step reports a configuration error (for example OCR returns a failed document instead of extracted facts).
+| Variable                                  | Requirement                                                                                 | Obtain from                                 |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `VITE_CLERK_PUBLISHABLE_KEY`              | Required public key; same instance as the secret                                            | Clerk → API Keys                            |
+| `CLERK_SECRET_KEY`                        | Required server authentication secret                                                       | Clerk → API Keys                            |
+| `TURSO_DATABASE_URL`                      | Required persistent database URL                                                            | Turso → database → Connect                  |
+| `TURSO_AUTH_TOKEN`                        | Required database token                                                                     | Turso → database → Create token             |
+| `GEMINI_API_KEY`                          | Required clinical extraction, questioning and summaries                                     | Google AI Studio → API keys                 |
+| `GROQ_API_KEY`                            | Required assistant, Whisper transcription and medicine browser search                       | Groq Console → API Keys                     |
+| `OCR_SPACE_API_KEY`                       | Required report/prescription OCR                                                            | OCR.space API dashboard                     |
+| `ELEVENLABS_API_KEY`                      | Required spoken prompts                                                                     | ElevenLabs → API Keys                       |
+| `ELEVENLABS_VOICE_ID`                     | Required accessible voice                                                                   | ElevenLabs Voice Library                    |
+| `GEMINI_MODEL`                            | Optional structured-generation model; default `gemini-flash-latest`                         | Google model supported by your account      |
+| `MEDICATION_EXTERNAL_PROCESSING_APPROVED` | Default `false`; operator privacy approval required before external medication processing   | Operator-controlled setting                 |
+| `MEDICATION_PROFESSIONAL_ROLES`           | Optional JSON mapping of real Clerk user IDs to clinician/pharmacist; required for sign-off | Operator provisions qualified reviewers     |
+| `MEDICATION_CATALOGUE_JSON`               | Optional licensed catalogue; missing means unavailable, not counterfeit                     | Licensed source; format in medication guide |
+| `MEDICATION_RULES_JSON`                   | Optional clinically reviewed rules; missing checks remain incomplete                        | Reviewed rules; format in medication guide  |
+
+The legacy `STRIPE_TEST_API_KEY` name is accepted only as the user-designated **Clerk secret** fallback when `CLERK_SECRET_KEY` is absent. It is not a payment integration. Use the correctly named secret for new deployments.
+
+All AI/OCR/audio calls use **direct Google, Groq, OCR.space and ElevenLabs APIs**. No Lovable AI runtime key or credits are needed. The public Lovable Vite configuration package is a build dependency, not an AI service. Existing asset CDN URLs must remain accessible.
+
+The environment check prints only configuration names/status, not values; it does not verify provider permissions, quota, billing or credentials. Database tables initialize on first use; no separate migration command is required by the current application. Reusing the Turso credentials reuses existing data—use a separate database for isolated previews.
+
+## Product pages and current boundaries
+
+| Page               | Path                    | Purpose / status                                                                                   |
+| ------------------ | ----------------------- | -------------------------------------------------------------------------------------------------- |
+| Home               | `/`                     | Explains the two workflows and links to each                                                       |
+| Patient check-in   | `/patient-kiosk`        | Voice-first intake, vitals, papers and saved visit                                                 |
+| Patient health     | `/patient`              | Signed-in records and patient assistant                                                            |
+| Medication Safety  | `/medication-safety`    | Private prescriptions, extraction, sourced identity review, timeline, supported checks and reports |
+| Clinician          | `/clinician`            | Care-team workspace; validate each action against its current adapter                              |
+| Assisted intake    | `/assisted-kiosk`       | Staff-facing screens include demonstration adapters                                                |
+| Operations / admin | `/operations`, `/admin` | Synthetic console adapters; not production facility administration                                 |
+| Presentation demo  | `/demo`                 | Prefilled, animated synthetic showcase; not real patient data or live verification                 |
+
+Do not present demonstration actions as persisted production functionality. The demo PDF control is illustrative; the real Medication Safety report workflow is separate.
+
+## Medication safety safeguards
+
+- External prescription reading/search requires **operator approval and recorded case consent**.
+- Private cases require an authenticated owner or an explicitly provisioned case grant.
+- Professional roles are server-owned; a role alone does not grant access to another owner's case.
+- Web medicine evidence must cite URLs actually returned by search. It remains non-regulatory and requires professional confirmation.
+- Matching does not establish physical authenticity. Missing sources never imply counterfeit.
+- Only reviewer-confirmed identities feed ingredient-dependent safety checks. Unsupported rules and missing clinical context remain explicitly incomplete.
+- Raw source text, corrections, identity runs and report snapshots retain separate audit history.
+
+See [Medication Safety documentation](docs/MEDICATION_SAFETY.md) for configuration, data formats and clinical limitations.
 
 ## Commands
 
-| Command                | Description                             |
-| ---------------------- | --------------------------------------- |
-| `bun run dev`          | Start the development server            |
-| `bun run build`        | Create a production build               |
-| `bun run build:dev`    | Create a development-mode build         |
-| `bun run preview`      | Preview a completed build               |
-| `bun run typecheck`    | Check TypeScript without emitting files |
-| `bun run lint`         | Run ESLint across the repository        |
-| `bun run format`       | Format supported files with Prettier    |
-| `bun run format:check` | Check formatting without changing files |
-| `bun run check`        | Run TypeScript and lint checks          |
-| `npm run check:env`    | Check required environment names without printing values |
-| `npm run test:deployment` | Run direct-provider regression tests |
+| Command                   | Purpose                                                        |
+| ------------------------- | -------------------------------------------------------------- |
+| `npm run dev`             | Start local development                                        |
+| `npm run build`           | Produce the Vercel server/static bundle                        |
+| `npm run build:dev`       | Build in development mode; not for production deployment       |
+| `npm run preview`         | Vite local preview; not a substitute for Vercel server testing |
+| `npm run check:env`       | Validate required variable presence without revealing values   |
+| `npm run test:deployment` | Direct-provider regression tests                               |
+| `npx vitest run`          | Run all project tests                                          |
+| `npm run typecheck`       | Check TypeScript                                               |
+| `npm run lint`            | Check lint rules                                               |
+| `npm run check`           | TypeScript and lint checks                                     |
+| `npm run format:check`    | Check formatting                                               |
+| `npm run format`          | Apply formatting                                               |
+
+`package-lock.json` is the Vercel/npm installation lockfile. Keep it synchronized with `package.json`; do not commit generated deployment output or `node_modules`.
 
 ## Project structure
 
 ```text
-src/
-├── assets/                 # Bundled images and managed asset references
-├── components/
-│   └── ui/                 # Shared design-system primitives
-├── features/               # Product-owned modules
-│   ├── admin/
-│   ├── assisted-kiosk/
-│   ├── clinician/
-│   ├── landing/
-│   ├── operations/
-│   ├── patient/
-│   └── patient-kiosk/
-├── hooks/                  # Generic reusable React hooks
-├── lib/                    # Cross-product utilities and infrastructure
-├── routes/                 # Thin TanStack route definitions
-├── router.tsx              # Router construction
-├── server.ts               # Server entry and error boundary wrapper
-├── start.ts                # Client/server startup configuration
-└── styles.css              # Global tokens, utilities, and base styles
+src/routes/                    Thin TanStack routes, metadata and HTTP endpoints
+src/features/                  Product-owned UI and workflow modules
+src/features/medication-safety/ Private medication workflow and matching engine
+src/lib/clinical/              Direct clinical providers and document handling
+src/components/ui/             Shared accessible controls
+src/start.ts                   Clerk request middleware
+src/server.ts                  Server entry
+src/styles.css                 Semantic design tokens
+scripts/check-env.mjs          Value-safe environment presence check
+vite.config.ts                 TanStack/Vite setup and Nitro Vercel preset
+nitro.config.ts                Vercel request duration
+vercel.json                    Install/build settings
 ```
 
-Each folder under `src/features/` owns its pages, components, state provider, types, frontend API adapter, mock data, and translations where applicable. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for boundaries and contribution rules.
+Routes must keep unique metadata and use TanStack Router. Never manually edit `src/routeTree.gen.ts`. Secret-backed work belongs behind authenticated server functions or explicitly authorized HTTP handlers, never in browser components.
 
-## Route map
+## Release checklist
 
-### Patient Kiosk
+- Run tests and repository checks; inspect production build errors.
+- Verify deep-link refresh, sign-in and a synthetic saved check-in on the actual host.
+- Verify consented upload → extraction → correction → sourced identity review → timeline → report while signed in.
+- Provision a qualified reviewer and explicit case access for sign-off checks.
+- Check voice input/output and assistant through the deployed UI.
+- Rotate exposed credentials, configure deployment abuse controls for public quota-consuming endpoints, and review security/privacy before using real patient data.
+- Confirm plan limits: OCR currently accepts files up to **1 MiB**; Vercel payload limits and provider quotas still apply.
 
-`/patient-kiosk`, `/patient-kiosk/consent`, `/patient-kiosk/introduction`, `/patient-kiosk/identification`, `/patient-kiosk/questions`, `/patient-kiosk/case-taking`, `/patient-kiosk/vitals`, `/patient-kiosk/documents`, `/patient-kiosk/review`, `/patient-kiosk/confirm`, `/patient-kiosk/processing`, `/patient-kiosk/complete`
-
-### Patient Health
-
-`/patient`, `/patient/timeline`, `/patient/reports`, `/patient/documents`, `/patient/intakes`, `/patient/consents`, `/patient/notifications`, `/patient/profile`
-
-The legacy `/patient/intake` compatibility experience remains intentionally separate from the Patient Health shell.
-
-### Assisted Kiosk
-
-`/assisted-kiosk`, `/assisted-kiosk/queue`, `/assisted-kiosk/start`, `/assisted-kiosk/case-taking`, `/assisted-kiosk/vitals`, `/assisted-kiosk/documents`, `/assisted-kiosk/handoff`
-
-### Clinician Workspace
-
-`/clinician`, `/clinician/worklist`, `/clinician/patients`, `/clinician/patients/:id`, `/clinician/patients/:id/sign`, `/clinician/documents`, `/clinician/alerts`, `/clinician/timeline`, `/clinician/settings`
-
-### Operations Console
-
-`/operations`, `/operations/dlq`, `/operations/manual-review`, `/operations/outbox`, `/operations/search`, `/operations/replay`
-
-### Admin Console
-
-`/admin`, `/admin/users`, `/admin/roles`, `/admin/facilities`, `/admin/audit`, `/admin/configuration`
-
-## Development conventions
-
-1. Keep route files small: define metadata, compose providers/layouts, and render a feature page.
-2. Add product-specific code to its folder in `src/features/`; do not place it in shared folders.
-3. Put only product-neutral controls in `src/components/ui/`, hooks in `src/hooks/`, and utilities in `src/lib/`.
-4. Import source code through the `@/` alias.
-5. Never edit `src/routeTree.gen.ts`; TanStack Router generates it from `src/routes/`.
-6. Preserve typed mock API boundaries so future services can replace mocks without redesigning screens.
-7. Keep all patient and operational examples synthetic and free of personally identifiable information.
-8. Maintain keyboard navigation, visible focus, reduced-motion support, readable contrast, and responsive layouts.
-
-## Quality checks
-
-Before opening a change for review:
-
-```bash
-npm run check
-npm run format:check
-npm run build
-```
-
-For visual changes, verify the affected surface at desktop and mobile sizes and check the browser console for errors.
-
-## Deployment
-
-### Deploy to Vercel
-
-The repository is Vercel-ready: `vercel.json` and `package-lock.json` configure npm, and `vite.config.ts` sets `nitro: { preset: "vercel" }` so the build emits a Vercel serverless bundle.
-
-1. Push this repository to GitHub (or GitLab/Bitbucket).
-2. In Vercel, **Add New → Project** and import the repository.
-3. Leave the framework preset as **Other**; Vercel reads `vercel.json`:
-   - Install command: `npm ci`
-   - Build command: `npm run build`
-   - Output directory override: **leave empty** (Nitro generates `.vercel/output` via the Build Output API)
-   - Node.js: **22.x**; allow a **120-second** function duration
-4. Under **Settings → Environment Variables**, add the required variables in `.env.example` for Production and Preview; optional medication settings are explained in [the deployment guide](docs/VERCEL.md). Secrets saved in Lovable are not copied to Vercel automatically. `.env` itself is never committed.
-5. Deploy. Database tables are created on the first request.
-6. In the Clerk dashboard, add the deployed domain to the allowed origins / production instance so sign-in works from the live URL.
-
-Redeploy after changing any environment variable — Vercel only picks up new values on a fresh build.
-
-#### Post-deploy checklist
-
-- `/` loads and the kiosk entry works.
-- `/patient-kiosk` completes a check-in end to end (questions, review, AI summary).
-- `/patient/timeline` shows the signed-in patient's real visits.
-- `/assisted-kiosk/documents` and `/clinician/documents` load for signed-in staff and allow OCR verification.
-- The patient assistant replies and voice input/output work (needs `GROQ_API_KEY` and the ElevenLabs keys).
+Current outstanding validation: real Vercel deployment, signed-in upload-to-report flow, licensed catalogue/rules and reviewer activation. A recent direct Gemini connectivity check timed out; provider availability is not guaranteed by passing unit tests.
 
 ## Documentation
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — ownership, dependencies, data flow, and extension guidance
-- [`docs/VERCEL.md`](docs/VERCEL.md) — independent hosting, exact keys, limits and post-deploy checks
-- [`src/routes/README.md`](src/routes/README.md) — route filename conventions
-- [`roadmap.md`](roadmap.md) — implementation checklist
+- [Vercel setup and post-deployment checks](docs/VERCEL.md)
+- [Architecture and boundaries](docs/ARCHITECTURE.md)
+- [Medication Safety configuration](docs/MEDICATION_SAFETY.md)
+- [Route conventions](src/routes/README.md)
+- [Remaining tasks](roadmap.md)
 
 ## License
 
-No license has been assigned. All rights are reserved unless the project owner adds a license.
+No license has been assigned. All rights reserved unless the owner adds a license.
