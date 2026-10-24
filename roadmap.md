@@ -1,6 +1,8 @@
 # Service credentials
 
 # Vercel portability
+
+- [x] Finalize README, blank environment template and current architecture documentation
 - [x] Remove Lovable AI runtime calls and use direct providers
 - [x] Validate Vercel deployment configuration and document environment requirements
 - [x] Run provider/deployment regression tests and public browser smoke checks
@@ -8,6 +10,7 @@
 - [ ] Verify real Vercel deployment and signed-in service flow — requires Vercel environment setup, deployment access and a Clerk session; direct Gemini test timed out
 
 # Medication Safety
+
 - [x] Add separate MediKiosk page and existing navigation entry
 - [x] Implement owner-isolated cases, private prescriptions, corrections and audit history in Turso
 - [x] Implement consent-gated OCR/extraction and traceable catalogue adapters
@@ -25,6 +28,7 @@
 - [x] Walk the whole check-in in a live browser from welcome to check-in code, with the case saved as ready-for-review and an assisted draft attached
 
 # Assisted Kiosk roadmap
+
 - [x] Add typed synthetic staff queue data and frontend API boundary
 - [x] Build assisted-care provider and local queue interactions
 - [x] Build staff shell, navigation, profile, accessibility, and help
