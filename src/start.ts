@@ -40,9 +40,10 @@ const safeClerkMiddleware = createMiddleware().server(async ({ request, next }) 
   try {
     // The supplied Clerk credential is stored under an existing legacy name.
     // Resolve it only on the server; a correctly named key takes precedence.
+    const secretKey = process.env["CLERK_SECRET_KEY"] ?? process.env["STRIPE_TEST_API_KEY"];
     const baseClerkMiddleware = clerkMiddleware({
       publishableKey: CLERK_PUBLISHABLE_KEY,
-      secretKey: process.env["CLERK_SECRET_KEY"] ?? process.env["STRIPE_TEST_API_KEY"],
+      ...(secretKey ? { secretKey } : {}),
     });
     const serverHandler = (
       baseClerkMiddleware as unknown as {
