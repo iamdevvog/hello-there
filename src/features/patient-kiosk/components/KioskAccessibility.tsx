@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
 import { Accessibility, Eye, Minus, MoveHorizontal, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useKiosk } from "@/features/patient-kiosk/kiosk-context";
 import { useKioskAccessibility } from "@/features/patient-kiosk/use-kiosk-accessibility";
 import { KioskText } from "./KioskText";
@@ -10,22 +11,6 @@ import { cn } from "@/lib/utils";
 export function KioskAccessibility() {
   const { t } = useKiosk();
   const a11y = useKioskAccessibility();
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    const onClick = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("mousedown", onClick);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("mousedown", onClick);
-    };
-  }, [open]);
 
   const toggleRow = (
     label: string,
@@ -35,7 +20,7 @@ export function KioskAccessibility() {
   ) => {
     const Icon = icon;
     return (
-      <button
+      <Button variant="ghost"
         type="button"
         role="switch"
         aria-checked={checked}
@@ -60,28 +45,25 @@ export function KioskAccessibility() {
             )}
           />
         </span>
-      </button>
+      </Button>
     );
   };
 
   return (
-    <div ref={wrapRef} className="relative">
-      <button
+    <Popover>
+      <PopoverTrigger asChild>
+      <Button variant="ghost"
         type="button"
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        onClick={() => setOpen((v) => !v)}
+        aria-label={t("kiosk.a11y.button")}
         className="inline-flex min-h-14 items-center gap-2.5 rounded-full border border-border bg-surface px-5 text-base font-semibold transition-colors hover:bg-muted"
       >
         <Accessibility aria-hidden="true" className="size-5" />
         <span className="hidden sm:inline">{t("kiosk.a11y.button")}</span>
-      </button>
-
-      {open && (
-        <div
-          role="dialog"
+      </Button>
+      </PopoverTrigger>
+        <PopoverContent align="end" sideOffset={12} collisionPadding={12}
           aria-label={t("kiosk.a11y.title")}
-          className="surface-panel absolute right-0 z-50 mt-3 w-[19rem] rounded-3xl p-5"
+          className="surface-panel w-[19rem] max-w-[calc(100vw-1.5rem)] max-h-[var(--radix-popover-content-available-height)] overflow-y-auto overscroll-contain rounded-3xl p-5"
         >
           <KioskText
             tkey="kiosk.a11y.title"
@@ -98,7 +80,7 @@ export function KioskAccessibility() {
             {t("kiosk.a11y.textSize")}
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={a11y.shrink}
               disabled={!a11y.canShrink}
@@ -106,14 +88,14 @@ export function KioskAccessibility() {
               className="grid size-14 place-items-center rounded-2xl border border-border bg-background transition-colors hover:bg-muted disabled:opacity-40"
             >
               <Minus aria-hidden="true" className="size-5" />
-            </button>
+            </Button>
             <span
               aria-hidden="true"
               className="grid h-14 flex-1 place-items-center rounded-2xl bg-muted text-base font-semibold"
             >
               <MoveHorizontal className="size-5" />
             </span>
-            <button
+            <Button variant="ghost"
               type="button"
               onClick={a11y.grow}
               disabled={!a11y.canGrow}
@@ -121,7 +103,7 @@ export function KioskAccessibility() {
               className="grid size-14 place-items-center rounded-2xl border border-border bg-background transition-colors hover:bg-muted disabled:opacity-40"
             >
               <Plus aria-hidden="true" className="size-5" />
-            </button>
+            </Button>
           </div>
 
           <div className="mt-3 space-y-2">
@@ -134,15 +116,14 @@ export function KioskAccessibility() {
             )}
           </div>
 
-          <button
+          <Button variant="ghost"
             type="button"
             onClick={a11y.reset}
             className="mt-4 min-h-12 w-full rounded-full border border-border text-base font-semibold transition-colors hover:bg-muted"
           >
             {t("kiosk.a11y.reset")}
-          </button>
-        </div>
-      )}
-    </div>
+          </Button>
+        </PopoverContent>
+    </Popover>
   );
 }
