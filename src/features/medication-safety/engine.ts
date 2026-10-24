@@ -1,3 +1,4 @@
+import { latestRun } from "./verification";
 import { z } from "zod";
 import { normalize, timeline, type Alert, type Analysis, type SafetyCase } from "./model";
 
@@ -307,6 +308,20 @@ export function reportLines(c: SafetyCase, reportId: string, status: string, at:
       `Source: ${m.documentId}, page ${m.page}; excerpt: ${m.excerpt || "Missing"}`,
       `Catalogue evidence: ${m.evidence || "Unavailable"}; Uncertainty: ${m.uncertainty.join("; ") || "No extraction uncertainty recorded"}`,
     ]),
+    "3B. MEDICINE IDENTITY VERIFICATION",
+    ...c.medicines.flatMap((m) => {
+      const v = latestRun(c.verifications, m.id);
+      if (!v) return [`${m.originalName}: identity verification not run`];
+      const best = v.candidates.find((x) => x.entryId === v.bestCandidateId);
+      const decision = v.reviewerDecisions.at(-1);
+      return [
+        `${m.originalName} -> ${best?.entry.brand ?? "No candidate"} | ${v.status} | identity score ${v.dimensions.identity.score ?? "not calculable"} (${v.algorithmVersion}; preliminary, not a validated probability)`,
+        `Candidate composition: ${best?.entry.ingredients.map((i) => `${i.name} ${i.strength} ${i.unit}`).join(" + ") || "Unknown"}; source ${best ? `${best.entry.source}, verified ${best.entry.verifiedAt}` : "none"}`,
+        `Mismatches: ${best?.attributes.filter((a) => a.result === "mismatch").map((a) => `${a.attribute} (${a.note})`).join("; ") || "None detected"}; Missing: ${v.missing.join(", ") || "None"}`,
+        `Reviewer decision: ${decision ? `${decision.decision} by ${decision.role}` : "None recorded"}; Physical product authenticity: ${v.dimensions.physical.status}`,
+        ...(m.verification !== "verified" ? ["Ingredient-dependent safety checks are limited for this medicine until identity is confirmed."] : []),
+      ];
+    }),
     "4. UNIFIED TIMELINE",
     ...timeline(c).map(
       (t) =>

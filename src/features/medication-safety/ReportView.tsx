@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, ShieldAlert } from "lucide-react";
 import { timeline, type SafetyCase } from "./model";
+import { VerificationBadge } from "./VerificationPanel";
+import { latestRun } from "./verification";
 
 const sevTone: Record<string, string> = {
   Critical: "bg-destructive text-destructive-foreground",
@@ -159,7 +161,36 @@ export function ReportView({
         ) : <Empty>No medicines recorded.</Empty>}
       </Section>
 
-      <Section n={4} title="Timeline">
+      <Section n={4} title="Medicine identity verification">
+        <p className="text-sm text-muted-foreground">Identity match scores are preliminary heuristics, not validated probabilities. A catalogue match never proves the physical product is genuine.</p>
+        {c.medicines.map((m) => {
+          const v = latestRun(c.verifications, m.id);
+          const best = v?.candidates.find((x) => x.entryId === v.bestCandidateId);
+          const d = v?.reviewerDecisions.at(-1);
+          return (
+            <div key={m.id} className="rounded-xl border p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-lg font-semibold">{m.originalName} <span className="font-normal text-muted-foreground">→ {best?.entry.brand ?? "No candidate"}</span></p>
+                <VerificationBadge run={v} />
+              </div>
+              {v && (
+                <div className="mt-3 grid gap-3 text-sm sm:grid-cols-4">
+                  <div><p className="text-muted-foreground">Identity score</p><p className="font-medium">{v.dimensions.identity.score ?? "Not calculable"}{v.dimensions.identity.score !== null && "%"}</p></div>
+                  <div><p className="text-muted-foreground">Evidence</p><p className="font-medium">{v.dimensions.evidence.score ?? "—"}{v.dimensions.evidence.score !== null && "%"}</p></div>
+                  <div><p className="text-muted-foreground">Reviewer</p><p className="font-medium">{d ? `${d.decision} (${d.role})` : "None yet"}</p></div>
+                  <div><p className="text-muted-foreground">Physical authenticity</p><p className="font-medium">{v.dimensions.physical.status}</p></div>
+                </div>
+              )}
+              {best && <p className="mt-3 text-sm text-muted-foreground">{best.entry.ingredients.map((i) => `${i.name} ${i.strength} ${i.unit}`).join(" + ")} · {best.entry.source}, verified {best.entry.verifiedAt} · method {v?.algorithmVersion}</p>}
+              {best?.attributes.filter((a) => a.result === "mismatch").map((a) => <p key={a.attribute} className="mt-1 text-sm text-destructive">{a.attribute}: {a.note}</p>)}
+              {v && v.missing.length > 0 && <p className="mt-1 text-sm text-muted-foreground">Missing: {v.missing.join(", ")}</p>}
+              {m.verification !== "verified" && <p className="mt-2 text-sm font-medium">Ingredient-dependent safety checks are limited for this medicine until identity is confirmed.</p>}
+            </div>
+          );
+        })}
+      </Section>
+
+      <Section n={5} title="Timeline">
         {c.medicines.length ? (
           <ol className="relative space-y-4 border-l-2 border-primary/30 pl-6">
             {timeline(c).map((t, i) => (
@@ -174,7 +205,7 @@ export function ReportView({
         ) : <Empty>Nothing to show.</Empty>}
       </Section>
 
-      <Section n={5} title="Safety findings">
+      <Section n={6} title="Safety findings">
         {!a ? <Empty>Analysis not run.</Empty> : a.alerts.length ? (
           <div className="space-y-4">
             {a.alerts.map((f) => (
@@ -193,7 +224,7 @@ export function ReportView({
         ) : <Empty>No supported safety alerts were found by the checks that ran.</Empty>}
       </Section>
 
-      <Section n={6} title="Checks and limitations">
+      <Section n={7} title="Checks and limitations">
         {a ? (
           <div className="overflow-hidden rounded-xl border">
             {a.checks.map((k, i) => (
@@ -207,7 +238,7 @@ export function ReportView({
         ) : <Empty>Analysis not run.</Empty>}
       </Section>
 
-      <Section n={7} title="Professional review">
+      <Section n={8} title="Professional review">
         {c.reviews.length ? (
           <ul className="space-y-3">
             {c.reviews.map((r, i) => (
