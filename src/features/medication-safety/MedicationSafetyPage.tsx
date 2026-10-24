@@ -97,7 +97,10 @@ export function MedicationSafetyPage() {
   useEffect(() => {
     if (!c || busy || !c.profile.consent || !services?.externalProcessingApproved) return;
     const pending = c.prescriptions.filter(
-      (d) => d.status === "Uploaded" && !autoRead.current.has(d.id),
+      (d) =>
+        (d.status === "Uploaded" ||
+          (d.status === "Failed" && /unavailable|429|5\d\d|try again/i.test(d.error ?? ""))) &&
+        !autoRead.current.has(d.id),
     );
     if (!pending.length) return;
     pending.forEach((d) => autoRead.current.add(d.id));
